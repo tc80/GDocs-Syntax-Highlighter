@@ -86,7 +86,61 @@ func subscribe(docsService *docs.Service) {
 	if err != nil {
 		log.Fatalf("Failed to get doc: %v", err)
 	}
-	fmt.Printf("Document: %v\n", doc.Title)
+
+	var srt, end int64
+	_ = srt
+	_ = end
+
+	// replaceall Public -> public, etc If -> if depending on lang
+	for _, elem := range doc.Body.Content {
+		if elem.Paragraph != nil {
+			for _, par := range elem.Paragraph.Elements {
+				if par.TextRun != nil {
+					// map each word to a range?
+					// check word, if word needs to be changed add a request to the requests slice
+					// ranges will need to be done mathematically
+					// do you try to parse it all at once ??? if so, then get all words and then match them
+					// up
+					srt = par.StartIndex
+					end = par.EndIndex
+					fmt.Println(par.TextRun.Content)
+				}
+			}
+		}
+	}
+
+	update := &docs.BatchUpdateDocumentRequest{
+		Requests: []*docs.Request{&docs.Request{
+			UpdateTextStyle: &docs.UpdateTextStyleRequest{
+				TextStyle: &docs.TextStyle{
+					//Bold: true,
+					ForegroundColor: &docs.OptionalColor{
+						Color: &docs.Color{
+							RgbColor: &docs.RgbColor{
+								Red:   0.4,
+								Green: 0.7,
+								Blue:  0.6,
+							},
+						},
+					},
+				},
+				Fields: "foregroundColor", // separate by commas
+				Range: &docs.Range{ // need to keep track of ranges
+					StartIndex: 15,
+					EndIndex:   20,
+				},
+			},
+		}},
+	}
+	response, err := docsService.Documents.BatchUpdate(docID, update).Do()
+	_ = response
+
+	// stop autocorrect?
+
+	if err != nil {
+		log.Fatalf("%v", err)
+	}
+
 }
 
 func main() {
@@ -105,7 +159,7 @@ func main() {
 	// authorize client (OAuth2)
 	client := authorizeClient(config)
 
-	// create docs service
+	// create docs service -- later use api
 	docsService, err := docs.NewService(context.Background(), option.WithHTTPClient(client))
 	if err != nil {
 		log.Fatalf("Failed to create Docs service: %v", err)
