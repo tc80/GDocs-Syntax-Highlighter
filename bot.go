@@ -8,6 +8,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"unicode/utf16"
+	"unicode/utf8"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -21,6 +23,14 @@ const (
 	credentialsPath = "credentials.json" // client secret
 	tokenPath       = "token.json"       // token path, needs to change if scope changes
 )
+
+// assuming endindex = startindex + 1
+// what is rune is wider than 1 index?
+type char struct {
+	startIndex int64
+	endIndex   int64
+	content    rune
+}
 
 // Authorizes the client with an API token.
 func authorizeClient(config *oauth2.Config) *http.Client {
@@ -75,39 +85,64 @@ func cacheToken(token *oauth2.Token) {
 		log.Fatalf("Failed to write token to file: %v", err)
 	}
 
-	// encode the Token into json
+	// encode the token into json
 	json.NewEncoder(file).Encode(token)
 }
 
 // for testing now
 func subscribe(docsService *docs.Service) {
-	docID := ""
+	docID := "12Wqdvk_jk_pIfcN87o7X9EYvn4ukWRgNkpATpJwm1yM"
 	doc, err := docsService.Documents.Get(docID).Do()
 	if err != nil {
 		log.Fatalf("Failed to get doc: %v", err)
 	}
 
-	var srt, end int64
-	_ = srt
-	_ = end
-
 	// replaceall Public -> public, etc If -> if depending on lang
+	// var b bytes.Buffer
+	// fmt.Printf("\n\nEND: %v", c)
+	// b.WriteString(par.TextRun.Content)
+
+	var chars []char
 	for _, elem := range doc.Body.Content {
 		if elem.Paragraph != nil {
 			for _, par := range elem.Paragraph.Elements {
 				if par.TextRun != nil {
-					// map each word to a range?
-					// check word, if word needs to be changed add a request to the requests slice
-					// ranges will need to be done mathematically
-					// do you try to parse it all at once ??? if so, then get all words and then match them
-					// up
-					srt = par.StartIndex
-					end = par.EndIndex
-					fmt.Println(par.TextRun.Content)
+					var index int64 = par.StartIndex
+					// parStartIndex := par.StartIndex
+					// var offset int64 = 0
+					for _, r := range par.TextRun.Content {
+						size := utf8.RuneLen(r)
+						if size > 1 {
+							rUtf16 := utf16.Encode([]rune{r})
+							rUtf16Size := len(rUtf16)
+							size = rUtf16Size
+						}
+						startIndex := index
+						index += int64(size)
+						chars = append(chars, char{startIndex, index, r})
+					}
 				}
 			}
 		}
 	}
+	for _, c := range chars {
+		fmt.Printf("\n%c (start: %v, end: %v)", c.content, c.startIndex, c.endIndex)
+	}
+
+	// with multiple updates what happens if you give the same range?
+	// ex. remove (2 to 3), then remove (2 to 3)
+
+	test := &docs.BatchUpdateDocumentRequest{
+		Requests: []*docs.Request{&docs.Request{
+			InsertText: &docs.InsertTextRequest{
+				Text: "a",
+				Location: &docs.Location{
+					Index: 1,
+				},
+			},
+		}},
+	}
+	_ = test
 
 	update := &docs.BatchUpdateDocumentRequest{
 		Requests: []*docs.Request{&docs.Request{
@@ -118,7 +153,7 @@ func subscribe(docsService *docs.Service) {
 						Color: &docs.Color{
 							RgbColor: &docs.RgbColor{
 								Red:   0.4,
-								Green: 0.7,
+								Green: 0.6,
 								Blue:  0.6,
 							},
 						},
@@ -126,12 +161,13 @@ func subscribe(docsService *docs.Service) {
 				},
 				Fields: "foregroundColor", // separate by commas
 				Range: &docs.Range{ // need to keep track of ranges
-					StartIndex: 15,
-					EndIndex:   20,
+					StartIndex: 3,
+					EndIndex:   10,
 				},
 			},
 		}},
 	}
+	_ = update
 	response, err := docsService.Documents.BatchUpdate(docID, update).Do()
 	_ = response
 
