@@ -4,12 +4,21 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
+	"time"
 	"unicode/utf16"
 
 	"GDocs-Syntax-Highlighter/auth"
 
 	"google.golang.org/api/docs/v1"
 	"google.golang.org/api/option"
+)
+
+const (
+	beginSymbol        = "~~begin~~"
+	endSymbol          = "~~end~~"
+	courierNew         = "Courier New"
+	weightedFontFamily = "weightedFontFamily"
 )
 
 // A rune and its respective utf16 start and end indices
@@ -22,10 +31,22 @@ type char struct {
 // Get the slice of chars, where each char holds a rune and its respective utf16 range
 func getChars(doc *docs.Document) []char {
 	var chars []char
+	begin := false
 	for _, elem := range doc.Body.Content {
 		if elem.Paragraph != nil {
 			for _, par := range elem.Paragraph.Elements {
 				if par.TextRun != nil {
+					content := strings.TrimSpace(par.TextRun.Content)
+					fmt.Println(content)
+					if strings.EqualFold(content, endSymbol) {
+						return chars
+					}
+					if !begin {
+						if strings.EqualFold(content, beginSymbol) {
+							begin = true
+						}
+						continue
+					}
 					index := par.StartIndex
 					// iterate over runes
 					for _, r := range par.TextRun.Content {
@@ -41,67 +62,75 @@ func getChars(doc *docs.Document) []char {
 	return chars
 }
 
+func getRange(startIndex, endIndex int64) *docs.Range {
+	docsRange := &docs.Range{
+		StartIndex: startIndex,
+		EndIndex:   endIndex,
+	}
+	return docsRange
+}
+
+func getFontRequest(chars []char) *docs.Request {
+	startIndex := chars[0].startIndex
+	endIndex := chars[len(chars)-1].endIndex
+	request :=
+		&docs.Request{
+			UpdateTextStyle: &docs.UpdateTextStyleRequest{
+				Fields: weightedFontFamily,
+				Range:  getRange(startIndex, endIndex),
+				TextStyle: &docs.TextStyle{
+					WeightedFontFamily: &docs.WeightedFontFamily{
+						FontFamily: courierNew,
+					},
+				},
+			}}
+	return request
+}
+
+func getBatchUpdate(requests []*docs.Request) *docs.BatchUpdateDocumentRequest {
+	batchUpdate :=
+		&docs.BatchUpdateDocumentRequest{
+			Requests: requests,
+		}
+	return batchUpdate
+}
+
 // for testing now
 func start(docsService *docs.Service) {
 	docID := "12Wqdvk_jk_pIfcN87o7X9EYvn4ukWRgNkpATpJwm1yM"
-	doc, err := docsService.Documents.Get(docID).Do()
-	if err != nil {
-		log.Fatalf("Failed to get doc: %v", err)
+	for {
+		fmt.Println("loop")
+		doc, err := docsService.Documents.Get(docID).Do()
+		if err != nil {
+			log.Fatalf("Failed to get doc: %v", err)
+		}
+
+		chars := getChars(doc)
+
+		if len(chars) == 0 {
+			continue
+		}
+
+		for _, c := range chars {
+			fmt.Printf("\n%c (start: %v, end: %v)", c.content, c.startIndex, c.endIndex)
+		}
+
+		var requests []*docs.Request
+		requests = append(requests, getFontRequest(chars))
+		_ = requests
+
+		update := getBatchUpdate(requests)
+		response, err := docsService.Documents.BatchUpdate(docID, update).Do()
+		_ = response
+
+		// stop autocorrect?
+
+		if err != nil {
+			log.Fatalf("%v", err)
+		}
+		time.Sleep(500 * time.Millisecond)
+		//os.Exit(1)
 	}
-
-	chars := getChars(doc)
-	for _, c := range chars {
-		fmt.Printf("\n%c (start: %v, end: %v)", c.content, c.startIndex, c.endIndex)
-	}
-
-	// with multiple updates what happens if you give the same range?
-	// ex. remove (2 to 3), then remove (2 to 3)
-
-	test := &docs.BatchUpdateDocumentRequest{
-		Requests: []*docs.Request{&docs.Request{
-			InsertText: &docs.InsertTextRequest{
-				Text: "a",
-				Location: &docs.Location{
-					Index: 1,
-				},
-			},
-		}},
-	}
-	_ = test
-
-	update := &docs.BatchUpdateDocumentRequest{
-		Requests: []*docs.Request{&docs.Request{
-			UpdateTextStyle: &docs.UpdateTextStyleRequest{
-				TextStyle: &docs.TextStyle{
-					//Bold: true,
-					ForegroundColor: &docs.OptionalColor{
-						Color: &docs.Color{
-							RgbColor: &docs.RgbColor{
-								Red:   0.4,
-								Green: 0.6,
-								Blue:  0.6,
-							},
-						},
-					},
-				},
-				Fields: "foregroundColor", // separate by commas
-				Range: &docs.Range{ // need to keep track of ranges
-					StartIndex: 3,
-					EndIndex:   10,
-				},
-			},
-		}},
-	}
-	_ = update
-	response, err := docsService.Documents.BatchUpdate(docID, update).Do()
-	_ = response
-
-	// stop autocorrect?
-
-	if err != nil {
-		log.Fatalf("%v", err)
-	}
-
 }
 
 func main() {
