@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"strings"
 	"time"
 	"unicode/utf16"
@@ -26,6 +27,21 @@ type char struct {
 	startIndex int64 // the utf16 inclusive start index of the rune
 	endIndex   int64 // the utf16 exclusive end index of the rune
 	content    rune  // the rune
+}
+
+type word struct {
+	startIndex int64
+	endIndex   int64
+	content    string
+}
+
+func getWords(chars []char) []word {
+	var words []word
+	w := word{}
+	fmt.Println(w.content)
+	os.Exit(1)
+	words = append(words, w)
+	return words
 }
 
 // Get the slice of chars, where each char holds a rune and its respective utf16 range
@@ -62,35 +78,26 @@ func getChars(doc *docs.Document) []char {
 	return chars
 }
 
-func getRange(startIndex, endIndex int64) *docs.Range {
-	docsRange := &docs.Range{
-		StartIndex: startIndex,
-		EndIndex:   endIndex,
-	}
-	return docsRange
-}
-
 func getFontRequest(startIndex, endIndex int64) *docs.Request {
-	request :=
-		&docs.Request{
-			UpdateTextStyle: &docs.UpdateTextStyleRequest{
-				Fields: weightedFontFamily,
-				Range:  getRange(startIndex, endIndex),
-				TextStyle: &docs.TextStyle{
-					WeightedFontFamily: &docs.WeightedFontFamily{
-						FontFamily: courierNew,
-					},
+	return &docs.Request{
+		UpdateTextStyle: &docs.UpdateTextStyleRequest{
+			Fields: weightedFontFamily,
+			Range: &docs.Range{
+				StartIndex: startIndex,
+				EndIndex:   endIndex,
+			},
+			TextStyle: &docs.TextStyle{
+				WeightedFontFamily: &docs.WeightedFontFamily{
+					FontFamily: courierNew,
 				},
-			}}
-	return request
+			},
+		}}
 }
 
 func getBatchUpdate(requests []*docs.Request) *docs.BatchUpdateDocumentRequest {
-	batchUpdate :=
-		&docs.BatchUpdateDocumentRequest{
-			Requests: requests,
-		}
-	return batchUpdate
+	return &docs.BatchUpdateDocumentRequest{
+		Requests: requests,
+	}
 }
 
 // for testing now
@@ -109,19 +116,15 @@ func start(docsService *docs.Service) {
 			continue
 		}
 
-		for _, c := range chars {
-			fmt.Printf("\n%c (start: %v, end: %v)", c.content, c.startIndex, c.endIndex)
-		}
+		words := getWords(chars)
 
 		var requests []*docs.Request
 		startIndex := chars[0].startIndex
 		endIndex := chars[len(chars)-1].endIndex
 		requests = append(requests, getFontRequest(startIndex, endIndex))
-		_ = requests
 
 		update := getBatchUpdate(requests)
 		response, err := docsService.Documents.BatchUpdate(docID, update).Do()
-		_ = response
 
 		// stop autocorrect?
 
