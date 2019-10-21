@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"unicode/utf16"
-	"unicode/utf8"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -107,19 +106,13 @@ func subscribe(docsService *docs.Service) {
 		if elem.Paragraph != nil {
 			for _, par := range elem.Paragraph.Elements {
 				if par.TextRun != nil {
-					var index int64 = par.StartIndex
-					// parStartIndex := par.StartIndex
-					// var offset int64 = 0
+					index := par.StartIndex
+					// iterate over runes
 					for _, r := range par.TextRun.Content {
-						size := utf8.RuneLen(r)
-						if size > 1 {
-							rUtf16 := utf16.Encode([]rune{r})
-							rUtf16Size := len(rUtf16)
-							size = rUtf16Size
-						}
-						startIndex := index
-						index += int64(size)
-						chars = append(chars, char{startIndex, index, r})
+						rUtf16 := utf16.Encode([]rune{r})                 // convert to utf16, since indices in GDocs API are utf16
+						startIndex := index                               // start index of char
+						index += int64(len(rUtf16))                       // add size of rune in utf16 format (now end index)
+						chars = append(chars, char{startIndex, index, r}) // associate runes with ranges
 					}
 				}
 			}
