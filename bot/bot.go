@@ -70,9 +70,7 @@ func getRange(startIndex, endIndex int64) *docs.Range {
 	return docsRange
 }
 
-func getFontRequest(chars []char) *docs.Request {
-	startIndex := chars[0].startIndex
-	endIndex := chars[len(chars)-1].endIndex
+func getFontRequest(startIndex, endIndex int64) *docs.Request {
 	request :=
 		&docs.Request{
 			UpdateTextStyle: &docs.UpdateTextStyleRequest{
@@ -116,7 +114,9 @@ func start(docsService *docs.Service) {
 		}
 
 		var requests []*docs.Request
-		requests = append(requests, getFontRequest(chars))
+		startIndex := chars[0].startIndex
+		endIndex := chars[len(chars)-1].endIndex
+		requests = append(requests, getFontRequest(startIndex, endIndex))
 		_ = requests
 
 		update := getBatchUpdate(requests)
