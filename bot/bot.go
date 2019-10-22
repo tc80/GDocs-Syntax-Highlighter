@@ -31,6 +31,7 @@ var (
 	red      = color{1, 0, 0}
 	green    = color{0, 1, 0}
 	blue     = color{0, 0, 1}
+	white    = color{1, 1, 1}
 	keywords = map[string]color{
 		"public": red,
 		"static": blue,
@@ -137,6 +138,27 @@ func getChars(doc *docs.Document) []*char {
 	return chars
 }
 
+func getDocumentRequest() *docs.Request {
+	return &docs.Request{
+		UpdateDocumentStyle: &docs.UpdateDocumentStyleRequest{
+			Fields: "background",
+			DocumentStyle: &docs.DocumentStyle{
+				Background: &docs.Background{
+					Color: &docs.OptionalColor{
+						Color: &docs.Color{
+							RgbColor: &docs.RgbColor{
+								Blue:  black.blue,
+								Red:   black.red,
+								Green: black.green,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 // Gets a request to change the color of a range.
 func getColorRequest(c color, startIndex, endIndex int64) *docs.Request {
 	return &docs.Request{
@@ -240,7 +262,7 @@ func start(docsService *docs.Service) {
 
 		var requests []*docs.Request
 		startIndex, endIndex := getRange(chars)
-		requests = append(requests, getColorRequest(black, startIndex, endIndex))
+		requests = append(requests, getColorRequest(white, startIndex, endIndex))
 		requests = append(requests, getFontRequest(startIndex, endIndex))
 
 		words := getWords(chars)
@@ -248,7 +270,8 @@ func start(docsService *docs.Service) {
 			lower := strings.ToLower(w.content)
 			if c, ok := keywords[lower]; ok {
 				if w.content != lower {
-					// make lower
+					// make lower, probs should not iterate through words
+					// should split replace req into two methods maybe?
 					requests = append(requests, getReplaceRequest(w, words[i+1:], lower)...)
 				}
 				requests = append(requests, getColorRequest(c, w.index, w.index+w.size))
@@ -275,6 +298,7 @@ func start(docsService *docs.Service) {
 		// 	fmt.Printf("\nWord is (%v) (%v - %v)", w.content, w.startIndex, w.endIndex)
 		// }
 
+		//requests = append(requests, getDocumentRequest())
 		update := getBatchUpdate(requests)
 		response, err := docsService.Documents.BatchUpdate(docID, update).Do()
 		_ = response
@@ -284,10 +308,10 @@ func start(docsService *docs.Service) {
 		// HOW TO MAKE LOWERCASE???
 
 		if err != nil {
-			//log.Fatalf("%v", err)
+			fmt.Printf("\n\nERROR!!!!!: %v", err)
+			log.Fatalf("%v", err)
 		}
-		time.Sleep(500 * time.Millisecond)
-		//os.Exit(1)
+		time.Sleep(2000 * time.Millisecond)
 	}
 }
 
