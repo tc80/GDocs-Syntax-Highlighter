@@ -127,6 +127,18 @@ func getColorRequest(r, g, b float64, startIndex, endIndex int64) *docs.Request 
 	}
 }
 
+func getReplaceRequest(text, replaceText string) *docs.Request {
+	return &docs.Request{
+		ReplaceAllText: &docs.ReplaceAllTextRequest{
+			ContainsText: &docs.SubstringMatchCriteria{
+				MatchCase: false,
+				Text:      text,
+			},
+			ReplaceText: replaceText,
+		},
+	}
+}
+
 func getFontRequest(startIndex, endIndex int64) *docs.Request {
 	return &docs.Request{
 		UpdateTextStyle: &docs.UpdateTextStyleRequest{
@@ -172,13 +184,14 @@ func start(docsService *docs.Service) {
 		requests = append(requests, getFontRequest(startIndex, endIndex))
 
 		words := getWords(chars)
-
+		requests = append(requests, getColorRequest(0, 0, 0, startIndex, endIndex))
 		for _, w := range words {
 			if strings.EqualFold(w.content, "public") {
 				fmt.Println(w)
 				requests = append(requests, getColorRequest(1, 0, 0, w.startIndex, w.endIndex))
 			}
 		}
+		requests = append(requests, getReplaceRequest("psvm", "public static void main(String[] args) {\n\n}"))
 
 		// for _, w := range words {
 		// 	fmt.Printf("\nWord is (%v) (%v - %v)", w.content, w.startIndex, w.endIndex)
@@ -190,8 +203,10 @@ func start(docsService *docs.Service) {
 
 		// stop autocorrect?
 
+		// HOW TO MAKE LOWERCASE???
+
 		if err != nil {
-			log.Fatalf("%v", err)
+			//log.Fatalf("%v", err)
 		}
 		time.Sleep(500 * time.Millisecond)
 		//os.Exit(1)
