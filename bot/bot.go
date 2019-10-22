@@ -245,11 +245,16 @@ func start(docsService *docs.Service) {
 
 		words := getWords(chars)
 		for i, w := range words {
-			if c, ok := keywords[w.content]; ok {
+			lower := strings.ToLower(w.content)
+			if c, ok := keywords[lower]; ok {
+				if w.content != lower {
+					// make lower
+					requests = append(requests, getReplaceRequest(w, words[i+1:], lower)...)
+				}
 				requests = append(requests, getColorRequest(c, w.index, w.index+w.size))
 				continue
 			}
-			if strings.EqualFold(w.content, "psvm") {
+			if strings.EqualFold(lower, "psvm") {
 				requests = append(requests, getReplaceRequest(w, words[i+1:], "public static void main(String[] args) {\n\n}")...)
 			}
 		}
