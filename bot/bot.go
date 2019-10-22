@@ -37,6 +37,10 @@ var (
 		"static": blue,
 		"void":   green,
 	}
+	shortcuts = map[string]string{
+		"psvm":  "public static void main(String[] args) {\n\n}",
+		"if-el": "if (cond) {\n\n} else {\n\n}",
+	}
 )
 
 // A rune and its respective utf16 start and end indices
@@ -277,10 +281,13 @@ func start(docsService *docs.Service) {
 				requests = append(requests, getColorRequest(c, w.index, w.index+w.size))
 				continue
 			}
-			if strings.EqualFold(lower, "psvm") {
-				requests = append(requests, getReplaceRequest(w, words[i+1:], "public static void main(String[] args) {\n\n}")...)
+			if replace, ok := shortcuts[lower]; ok {
+				requests = append(requests, getReplaceRequest(w, words[i+1:], replace)...)
 			}
 		}
+		// if change is occuring before something, maybe wait to change its colors until change is
+		// occuring after something so that its colors dont glitch
+
 		//requests = append(requests, getReplaceRequest(word{}, nil)...)
 		// keywords
 		// replaceall identifiers with a color?
