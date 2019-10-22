@@ -33,10 +33,11 @@ type char struct {
 	content    rune  // the rune
 }
 
+// A word as a string and its respective utf16 start and end indices
 type word struct {
-	startIndex int64
-	endIndex   int64
-	content    string
+	startIndex int64  // the utf16 inclusive start index of the string
+	endIndex   int64  // the utf16 exclusive end index of the string
+	content    string // the string
 }
 
 func getWords(chars []char) []word {
