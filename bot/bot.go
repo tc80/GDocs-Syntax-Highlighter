@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
 	"strings"
 	"time"
 	"unicode"
@@ -27,46 +26,65 @@ const (
 	weightedFontFamily = "weightedFontFamily"
 )
 
+var (
+	black    = color{}
+	red      = color{1, 0, 0}
+	green    = color{0, 1, 0}
+	blue     = color{0, 0, 1}
+	keywords = map[string]color{
+		"public": red,
+		"static": blue,
+		"void":   green,
+	}
+)
+
 // A rune and its respective utf16 start and end indices
 type char struct {
-	startIndex int64 // the utf16 inclusive start index of the rune
-	endIndex   int64 // the utf16 exclusive end index of the rune
-	content    rune  // the rune
+	index   int64 // the utf16 inclusive start index of the rune
+	size    int64 // the size of the rune in utf16 units
+	content rune  // the rune
 }
 
 // A word as a string and its respective utf16 start and end indices
 type word struct {
-	startIndex int64  // the utf16 inclusive start index of the string
-	endIndex   int64  // the utf16 exclusive end index of the string
-	content    string // the string
+	index   int64  // the utf16 inclusive start index of the string
+	size    int64  // the size of the word in utf16 units
+	content string // the string
 }
 
-func getWords(chars []char) []*word {
+// An RGB color
+type color struct {
+	red   float64 // the red value from 0.0 to 1.0
+	green float64 // the green value from 0.0 to 1.0
+	blue  float64 // the blue value from 0.0 to 1.0
+}
+
+func getWords(chars []*char) []*word {
 	var words []*word
 	var b bytes.Buffer
-	var startIndex, endIndex int64
+	var index int64
 	start := true
 	for _, char := range chars {
 		if unicode.IsSpace(char.content) {
 			str := b.String()
 			if len(str) > 0 {
-				endIndex = char.startIndex // end index is start index of next
-				words = append(words, &word{startIndex, endIndex, str})
+				size := getUtf16StringSize(str)
+				words = append(words, &word{index, size, str})
 				start = true
 				b.Reset()
 			}
 			continue
 		}
 		if start {
-			startIndex = char.startIndex
+			index = char.index
 			start = false
 		}
 		b.WriteRune(char.content)
 	}
 	str := b.String()
 	if len(str) > 0 {
-		endIndex = chars[len(chars)-1].endIndex // last char was not space, so last char's end index
-		words = append(words, &word{startIndex, endIndex, str})
+		size := getUtf16StringSize(str)
+		words = append(words, &word{index, size, str})
 	}
 	return words
 }
@@ -87,8 +105,8 @@ func getUtf16StringSize(s string) int64 {
 }
 
 // Get the slice of chars, where each char holds a rune and its respective utf16 range
-func getChars(doc *docs.Document) []char {
-	var chars []char
+func getChars(doc *docs.Document) []*char {
+	var chars []*char
 	begin := false
 	for _, elem := range doc.Body.Content {
 		if elem.Paragraph != nil {
@@ -108,9 +126,9 @@ func getChars(doc *docs.Document) []char {
 					index := par.StartIndex
 					// iterate over runes
 					for _, r := range par.TextRun.Content {
-						startIndex := index                               // start index of char
-						index += getUtf16RuneSize(r)                      // add size of rune in utf16 format (now end index)
-						chars = append(chars, char{startIndex, index, r}) // associate runes with ranges
+						size := getUtf16RuneSize(r)                  // size of run in utf16 units
+						chars = append(chars, &char{index, size, r}) // associate runes with ranges
+						index += size
 					}
 				}
 			}
@@ -119,7 +137,8 @@ func getChars(doc *docs.Document) []char {
 	return chars
 }
 
-func getColorRequest(r, g, b float64, startIndex, endIndex int64) *docs.Request {
+// Gets a request to change the color of a range.
+func getColorRequest(c color, startIndex, endIndex int64) *docs.Request {
 	return &docs.Request{
 		UpdateTextStyle: &docs.UpdateTextStyleRequest{
 			Fields: foregroundColor,
@@ -131,9 +150,9 @@ func getColorRequest(r, g, b float64, startIndex, endIndex int64) *docs.Request 
 				ForegroundColor: &docs.OptionalColor{
 					Color: &docs.Color{
 						RgbColor: &docs.RgbColor{
-							Red:   r,
-							Blue:  b,
-							Green: g,
+							Red:   c.red,
+							Blue:  c.blue,
+							Green: c.green,
 						},
 					},
 				},
@@ -142,41 +161,35 @@ func getColorRequest(r, g, b float64, startIndex, endIndex int64) *docs.Request 
 	}
 }
 
-// words come after word
+// Gets the requests to delete a word and insert a new one in its place.
 func getReplaceRequest(word *word, wordsAfter []*word, replace string) []*docs.Request {
-
+	// delete word
 	delete := &docs.Request{
 		DeleteContentRange: &docs.DeleteContentRangeRequest{
 			Range: &docs.Range{
-				StartIndex: word.startIndex,
-				EndIndex:   word.endIndex,
+				StartIndex: word.index,
+				EndIndex:   word.index + word.size,
 			},
 		},
 	}
+	// insert replacement at deleted word's location
 	insert := &docs.Request{
 		InsertText: &docs.InsertTextRequest{
 			Text: replace,
 			Location: &docs.Location{
-				Index: word.startIndex,
+				Index: word.index,
 			},
 		},
 	}
-	oldSize := word.endIndex - word.startIndex
+	requests := []*docs.Request{delete, insert}
 	newSize := getUtf16StringSize(replace)
-	diff := newSize - oldSize
-	word.endIndex = word.startIndex + newSize
+	diff := newSize - word.size
+	word.size = newSize
+	// update ranges for words that follow this word
 	for _, w := range wordsAfter {
-		fmt.Printf("\n%v - %v - %v", w.content, w.startIndex, w.endIndex)
-		w.startIndex += diff
-		w.endIndex += diff
-		fmt.Printf("\n%v - %v - %v", w.content, w.startIndex, w.endIndex)
+		w.index += diff
 	}
-
-	// delete text using range
-	// insert new text
-	// iterate over words, if the word follows this one, its range needs to be updated accordingly
-	return []*docs.Request{delete, insert}
-
+	return requests
 }
 
 func getFontRequest(startIndex, endIndex int64) *docs.Request {
@@ -202,6 +215,13 @@ func getBatchUpdate(requests []*docs.Request) *docs.BatchUpdateDocumentRequest {
 	}
 }
 
+func getRange(chars []*char) (int64, int64) {
+	startIndex := chars[0].index
+	lastChar := chars[len(chars)-1]
+	endIndex := lastChar.index + lastChar.size
+	return startIndex, endIndex
+}
+
 // for testing now
 func start(docsService *docs.Service) {
 	docID := "12Wqdvk_jk_pIfcN87o7X9EYvn4ukWRgNkpATpJwm1yM"
@@ -219,17 +239,17 @@ func start(docsService *docs.Service) {
 		}
 
 		var requests []*docs.Request
-		startIndex := chars[0].startIndex
-		endIndex := chars[len(chars)-1].endIndex
-		requests = append(requests, getColorRequest(0, 0, 0, startIndex, endIndex))
+		startIndex, endIndex := getRange(chars)
+		requests = append(requests, getColorRequest(black, startIndex, endIndex))
 		requests = append(requests, getFontRequest(startIndex, endIndex))
 
 		words := getWords(chars)
 		for i, w := range words {
-			if strings.EqualFold(w.content, "public") {
-				fmt.Println(w)
-				requests = append(requests, getColorRequest(1, 0, 0, w.startIndex, w.endIndex))
-			} else if strings.EqualFold(w.content, "psvm") {
+			if c, ok := keywords[w.content]; ok {
+				requests = append(requests, getColorRequest(c, w.index, w.index+w.size))
+				continue
+			}
+			if strings.EqualFold(w.content, "psvm") {
 				requests = append(requests, getReplaceRequest(w, words[i+1:], "public static void main(String[] args) {\n\n}")...)
 			}
 		}
@@ -262,7 +282,7 @@ func start(docsService *docs.Service) {
 			//log.Fatalf("%v", err)
 		}
 		time.Sleep(500 * time.Millisecond)
-		os.Exit(1)
+		//os.Exit(1)
 	}
 }
 
