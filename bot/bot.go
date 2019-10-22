@@ -1,12 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log"
-	"os"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf16"
 
 	"GDocs-Syntax-Highlighter/auth"
@@ -16,9 +17,12 @@ import (
 )
 
 const (
+	// sometimes cannot find begin and end
+	// need to fix
 	beginSymbol        = "~~begin~~"
 	endSymbol          = "~~end~~"
 	courierNew         = "Courier New"
+	foregroundColor    = "foregroundColor"
 	weightedFontFamily = "weightedFontFamily"
 )
 
@@ -37,10 +41,31 @@ type word struct {
 
 func getWords(chars []char) []word {
 	var words []word
-	w := word{}
-	fmt.Println(w.content)
-	os.Exit(1)
-	words = append(words, w)
+	var b bytes.Buffer
+	var startIndex, endIndex int64
+	start := true
+	for _, char := range chars {
+		if unicode.IsSpace(char.content) {
+			str := b.String()
+			if len(str) > 0 {
+				endIndex = char.startIndex // end index is start index of next
+				words = append(words, word{startIndex, endIndex, str})
+				start = true
+				b.Reset()
+			}
+			continue
+		}
+		if start {
+			startIndex = char.startIndex
+			start = false
+		}
+		b.WriteRune(char.content)
+	}
+	str := b.String()
+	if len(str) > 0 {
+		endIndex = chars[len(chars)-1].endIndex // last char was not space, so last char's end index
+		words = append(words, word{startIndex, endIndex, str})
+	}
 	return words
 }
 
@@ -78,6 +103,29 @@ func getChars(doc *docs.Document) []char {
 	return chars
 }
 
+func getColorRequest(r, g, b float64, startIndex, endIndex int64) *docs.Request {
+	return &docs.Request{
+		UpdateTextStyle: &docs.UpdateTextStyleRequest{
+			Fields: foregroundColor,
+			Range: &docs.Range{
+				StartIndex: startIndex,
+				EndIndex:   endIndex,
+			},
+			TextStyle: &docs.TextStyle{
+				ForegroundColor: &docs.OptionalColor{
+					Color: &docs.Color{
+						RgbColor: &docs.RgbColor{
+							Red:   r,
+							Blue:  b,
+							Green: g,
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func getFontRequest(startIndex, endIndex int64) *docs.Request {
 	return &docs.Request{
 		UpdateTextStyle: &docs.UpdateTextStyleRequest{
@@ -91,7 +139,8 @@ func getFontRequest(startIndex, endIndex int64) *docs.Request {
 					FontFamily: courierNew,
 				},
 			},
-		}}
+		},
+	}
 }
 
 func getBatchUpdate(requests []*docs.Request) *docs.BatchUpdateDocumentRequest {
@@ -116,15 +165,27 @@ func start(docsService *docs.Service) {
 			continue
 		}
 
-		words := getWords(chars)
-
 		var requests []*docs.Request
 		startIndex := chars[0].startIndex
 		endIndex := chars[len(chars)-1].endIndex
 		requests = append(requests, getFontRequest(startIndex, endIndex))
 
+		words := getWords(chars)
+
+		for _, w := range words {
+			if strings.EqualFold(w.content, "public") {
+				fmt.Println(w)
+				requests = append(requests, getColorRequest(1, 0, 0, w.startIndex, w.endIndex))
+			}
+		}
+
+		// for _, w := range words {
+		// 	fmt.Printf("\nWord is (%v) (%v - %v)", w.content, w.startIndex, w.endIndex)
+		// }
+
 		update := getBatchUpdate(requests)
 		response, err := docsService.Documents.BatchUpdate(docID, update).Do()
+		_ = response
 
 		// stop autocorrect?
 
