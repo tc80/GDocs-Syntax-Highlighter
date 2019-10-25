@@ -140,12 +140,13 @@ func searchUntil(p parser) parser {
 		var results []*Char
 		output := p(input)
 		for ; output.result == nil; output = p(input) {
-			input = output.remaining
+			//input = output.remaining
 			output = expectChar(anyRune())(input)
 			if output.result == nil {
 				return success(search{results, nil}, input)
 			}
 			results = append(results, output.result.(*Char))
+			fmt.Printf("\nAppended: %c", output.result.(*Char).content)
 			input = output.remaining
 		}
 		input = output.remaining
@@ -210,19 +211,21 @@ func expectComment(start string, end string) parser {
 			b.WriteRune(r.content)
 		}
 		if s.desired != nil {
+			fmt.Println("found")
 			desired := s.desired.(*Word)
 			w.size += desired.size
 			b.WriteString(desired.content)
 		}
 		input = output.remaining
 		w.content = b.String()
+		fmt.Println(b.String())
 		return success(w, input)
 	}
 }
 
 func expectWord(s string) parser {
 	return func(input parserInput) parserOutput {
-		var w *Word = nil
+		var w *Word
 		for _, r := range s {
 			output := expectChar(isRune(r))(input)
 			if output.result == nil {
