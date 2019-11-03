@@ -1,0 +1,116 @@
+package requests
+
+import (
+	"GDocs-Syntax-Highlighter/parser"
+	"GDocs-Syntax-Highlighter/style"
+
+	"google.golang.org/api/docs/v1"
+)
+
+const (
+	background         = "background"
+	foregroundColor    = "foregroundColor"
+	weightedFontFamily = "weightedFontFamily"
+)
+
+// GetDocumentColorRequest gets a request to change the color of the document.
+func GetDocumentColorRequest(c style.Color) *docs.Request {
+	return &docs.Request{
+		UpdateDocumentStyle: &docs.UpdateDocumentStyleRequest{
+			Fields: background,
+			DocumentStyle: &docs.DocumentStyle{
+				Background: &docs.Background{
+					Color: &docs.OptionalColor{
+						Color: &docs.Color{
+							RgbColor: &docs.RgbColor{
+								Blue:  c.Blue,
+								Red:   c.Red,
+								Green: c.Green,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+// GetColorRequest gets a request to change the color of a range.
+func GetColorRequest(c style.Color, startIndex, endIndex int64) *docs.Request {
+	return &docs.Request{
+		UpdateTextStyle: &docs.UpdateTextStyleRequest{
+			Fields: foregroundColor,
+			Range: &docs.Range{
+				StartIndex: startIndex,
+				EndIndex:   endIndex,
+			},
+			TextStyle: &docs.TextStyle{
+				ForegroundColor: &docs.OptionalColor{
+					Color: &docs.Color{
+						RgbColor: &docs.RgbColor{
+							Red:   c.Red,
+							Blue:  c.Blue,
+							Green: c.Green,
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+// GetReplaceRequest gets the requests to delete a Word and insert a new one in its place.
+func GetReplaceRequest(word *parser.Word, wordsAfter []*parser.Word, replace string) []*docs.Request {
+	// request to delete the Word
+	delete := &docs.Request{
+		DeleteContentRange: &docs.DeleteContentRangeRequest{
+			Range: &docs.Range{
+				StartIndex: word.Index,
+				EndIndex:   word.Index + word.Size,
+			},
+		},
+	}
+	// request to insert the replacement at deleted Word's location
+	insert := &docs.Request{
+		InsertText: &docs.InsertTextRequest{
+			Text: replace,
+			Location: &docs.Location{
+				Index: word.Index,
+			},
+		},
+	}
+	requests := []*docs.Request{delete, insert}
+	newSize := parser.GetUtf16StringSize(replace)
+	diff := newSize - word.Size
+	word.Size = newSize
+	// update ranges for Words that follow this Word
+	for _, w := range wordsAfter {
+		w.Index += diff
+	}
+	return requests
+}
+
+// GetFontRequest gets the request to update a range with a particular font.
+func GetFontRequest(font string, startIndex, endIndex int64) *docs.Request {
+	return &docs.Request{
+		UpdateTextStyle: &docs.UpdateTextStyleRequest{
+			Fields: weightedFontFamily,
+			Range: &docs.Range{
+				StartIndex: startIndex,
+				EndIndex:   endIndex,
+			},
+			TextStyle: &docs.TextStyle{
+				WeightedFontFamily: &docs.WeightedFontFamily{
+					FontFamily: font,
+				},
+			},
+		},
+	}
+}
+
+// GetBatchUpdate gets the batch request from a slice of requests.
+func GetBatchUpdate(requests []*docs.Request) *docs.BatchUpdateDocumentRequest {
+	return &docs.BatchUpdateDocumentRequest{
+		Requests: requests,
+	}
+}

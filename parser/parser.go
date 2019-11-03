@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"GDocs-Syntax-Highlighter/style"
 	"bytes"
 	"fmt"
 	"strings"
@@ -10,7 +11,14 @@ import (
 	"google.golang.org/api/docs/v1"
 )
 
-// Char is arune and its respective utf16 start and end indices
+const (
+	// sometimes cannot find begin and end
+	// need to fix
+	beginSymbol = "~~begin~~"
+	endSymbol   = "~~end~~"
+)
+
+// Char is a rune and its respective utf16 start and end indices
 type Char struct {
 	index   int64 // the utf16 inclusive start index of the rune
 	size    int64 // the size of the rune in utf16 units
@@ -19,10 +27,12 @@ type Char struct {
 
 // Word is a string and its respective utf16 start and end indices
 type Word struct {
-	index   int64  // the utf16 inclusive start index of the string
-	size    int64  // the size of the Word in utf16 units
-	content string // the string
+	Index   int64  // the utf16 inclusive start index of the string
+	Size    int64  // the size of the Word in utf16 units
+	Content string // the string
 }
+
+type parser func(parserInput) parserOutput
 
 // Comment
 type comment struct {
@@ -44,52 +54,6 @@ type search struct {
 	results []*Char
 	desired interface{}
 }
-
-const (
-	// sometimes cannot find begin and end
-	// need to fix
-	beginSymbol        = "~~begin~~"
-	endSymbol          = "~~end~~"
-	courierNew         = "Courier New"
-	foregroundColor    = "foregroundColor"
-	weightedFontFamily = "weightedFontFamily"
-)
-
-var (
-	black     = color{}
-	red       = color{1, 0, 0}
-	green     = color{0, 1, 0}
-	blue      = color{0, 0, 1}
-	white     = color{1, 1, 1}
-	slComment = comment{"//", "\n"}
-	mlComment = comment{"/*", "*/"}
-	comments  = []comment{
-		comment{"//", "\n"},
-		comment{"/*", "*/"},
-	}
-	keywords = map[string]color{
-		"public": red,
-		"static": blue,
-		"void":   green,
-	}
-	shortcuts = map[string]string{
-		"psvm":  "public static void main(String[] args) {\n\n}",
-		"if-el": "if (cond) {\n\n} else {\n\n}",
-	}
-	// comments = map[string]comment{
-	// 	slComment.startSymbol: slComment,
-	// 	mlComment.startSymbol: mlComment,
-	// }
-)
-
-// DIGIT DIGIT DOT DIGIT DIGIT DOT....
-
-// date -> number -> dot -> number -> dot -> year
-// number -> digit digit
-// dot
-// number -> digit ..........
-
-type parser func(parserInput) parserOutput
 
 type commentInput struct {
 	pos   int
@@ -134,12 +98,13 @@ func searchUntil(p parser) parser {
 		var results []*Char
 		output := p(input)
 		for ; output.result == nil; output = p(input) {
-			input = output.remaining
+			//input = output.remaining
 			output = expectChar(anyRune())(input)
 			if output.result == nil {
 				return success(search{results, nil}, input)
 			}
 			results = append(results, output.result.(*Char))
+			fmt.Printf("\nAppended: %c", output.result.(*Char).content)
 			input = output.remaining
 		}
 		input = output.remaining
@@ -164,10 +129,10 @@ func getFillerChar(index int64) *Char {
 }
 
 // SeparateComments does...
-func SeparateComments(chars []*Char) ([]*Char, []*Word) {
+func SeparateComments(language *style.Language, chars []*Char) ([]*Char, []*Word) {
 	var commentParsers []parser
-	for _, c := range comments {
-		commentParsers = append(commentParsers, expectComment(c.startSymbol, c.endSymbol))
+	for _, c := range language.Comments {
+		commentParsers = append(commentParsers, expectComment(c.StartSymbol, c.EndSymbol))
 	}
 	var cs []*Char
 	var ws []*Word
@@ -177,7 +142,7 @@ func SeparateComments(chars []*Char) ([]*Char, []*Word) {
 		if output.result != nil {
 			w := output.result.(*Word)
 			ws = append(ws, w)                      // got a comment
-			cs = append(cs, getFillerChar(w.index)) // put filler in for something like hello/**/world so it is hello world instead of helloworld
+			cs = append(cs, getFillerChar(w.Index)) // put filler in for something like hello/**/world so it is hello world instead of helloworld
 			input = output.remaining
 			continue
 		}
@@ -196,27 +161,29 @@ func expectComment(start string, end string) parser {
 		input = output.remaining
 		w := output.result.(*Word)
 		var b bytes.Buffer
-		b.WriteString(w.content)
+		b.WriteString(w.Content)
 		output = searchUntil(expectWord(end))(input)
 		s := output.result.(search)
 		for _, r := range s.results {
-			w.index += r.size
+			w.Size += r.size
 			b.WriteRune(r.content)
 		}
 		if s.desired != nil {
+			fmt.Println("found")
 			desired := s.desired.(*Word)
-			w.index += desired.size
-			b.WriteString(desired.content)
+			w.Size += desired.Size
+			b.WriteString(desired.Content)
 		}
 		input = output.remaining
-		w.content = b.String()
+		w.Content = b.String()
+		fmt.Println(b.String())
 		return success(w, input)
 	}
 }
 
 func expectWord(s string) parser {
 	return func(input parserInput) parserOutput {
-		var w *Word = nil
+		var w *Word
 		for _, r := range s {
 			output := expectChar(isRune(r))(input)
 			if output.result == nil {
@@ -226,7 +193,7 @@ func expectWord(s string) parser {
 			if w == nil {
 				w = &Word{c.index, 0, s}
 			}
-			w.size += c.size
+			w.Size += c.size
 			input = output.remaining
 		}
 		return success(w, input)
@@ -258,7 +225,7 @@ func expectChar(desired isRuneFunc) parser {
 	}
 }
 
-func getSlice(s string) []*Char {
+func GetSlice(s string) []*Char {
 	var cs []*Char
 	for _, r := range s {
 		cs = append(cs, &Char{0, 0, r})
@@ -267,20 +234,7 @@ func getSlice(s string) []*Char {
 	return cs
 }
 
-// An RGB color
-type color struct {
-	red   float64 // the red value from 0.0 to 1.0
-	green float64 // the green value from 0.0 to 1.0
-	blue  float64 // the blue value from 0.0 to 1.0
-}
-
-// Comment
-type comment struct {
-	startSymbol string
-	endSymbol   string
-}
-
-func getWords(chars []*Char) []*Word {
+func GetWords(chars []*Char) []*Word {
 	var words []*Word
 	var b bytes.Buffer
 	var index int64
@@ -289,7 +243,7 @@ func getWords(chars []*Char) []*Word {
 		if unicode.IsSpace(Char.content) {
 			str := b.String()
 			if len(str) > 0 {
-				size := getUtf16StringSize(str)
+				size := GetUtf16StringSize(str)
 				words = append(words, &Word{index, size, str})
 				start = true
 				b.Reset()
@@ -304,29 +258,29 @@ func getWords(chars []*Char) []*Word {
 	}
 	str := b.String()
 	if len(str) > 0 {
-		size := getUtf16StringSize(str)
+		size := GetUtf16StringSize(str)
 		words = append(words, &Word{index, size, str})
 	}
 	return words
 }
 
 // Get the size of a rune in UTF-16 format
-func getUtf16RuneSize(r rune) int64 {
+func GetUtf16RuneSize(r rune) int64 {
 	rUtf16 := utf16.Encode([]rune{r}) // convert to utf16, since indices in GDocs API are utf16
 	return int64(len(rUtf16))         // size of rune in utf16 format
 }
 
 // Get the size of a string in UTF-16 format
-func getUtf16StringSize(s string) int64 {
+func GetUtf16StringSize(s string) int64 {
 	var size int64
 	for _, r := range s {
-		size += getUtf16RuneSize(r)
+		size += GetUtf16RuneSize(r)
 	}
 	return size
 }
 
 // Get the slice of chars, where each Char holds a rune and its respective utf16 range
-func getChars(doc *docs.Document) []*Char {
+func GetChars(doc *docs.Document) []*Char {
 	var chars []*Char
 	begin := false
 	for _, elem := range doc.Body.Content {
@@ -347,7 +301,7 @@ func getChars(doc *docs.Document) []*Char {
 					index := par.StartIndex
 					// iterate over runes
 					for _, r := range par.TextRun.Content {
-						size := getUtf16RuneSize(r)                  // size of run in utf16 units
+						size := GetUtf16RuneSize(r)                  // size of run in utf16 units
 						chars = append(chars, &Char{index, size, r}) // associate runes with ranges
 						index += size
 					}
@@ -358,127 +312,9 @@ func getChars(doc *docs.Document) []*Char {
 	return chars
 }
 
-func getDocumentRequest() *docs.Request {
-	return &docs.Request{
-		UpdateDocumentStyle: &docs.UpdateDocumentStyleRequest{
-			Fields: "background",
-			DocumentStyle: &docs.DocumentStyle{
-				Background: &docs.Background{
-					Color: &docs.OptionalColor{
-						Color: &docs.Color{
-							RgbColor: &docs.RgbColor{
-								Blue:  black.blue,
-								Red:   black.red,
-								Green: black.green,
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-// Gets a request to change the color of a range.
-func getColorRequest(c color, startIndex, endIndex int64) *docs.Request {
-	return &docs.Request{
-		UpdateTextStyle: &docs.UpdateTextStyleRequest{
-			Fields: foregroundColor,
-			Range: &docs.Range{
-				StartIndex: startIndex,
-				EndIndex:   endIndex,
-			},
-			TextStyle: &docs.TextStyle{
-				ForegroundColor: &docs.OptionalColor{
-					Color: &docs.Color{
-						RgbColor: &docs.RgbColor{
-							Red:   c.red,
-							Blue:  c.blue,
-							Green: c.green,
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-// Gets the requests to delete a Word and insert a new one in its place.
-func getReplaceRequest(Word *Word, wordsAfter []*Word, replace string) []*docs.Request {
-	// delete Word
-	delete := &docs.Request{
-		DeleteContentRange: &docs.DeleteContentRangeRequest{
-			Range: &docs.Range{
-				StartIndex: Word.index,
-				EndIndex:   Word.index + Word.size,
-			},
-		},
-	}
-	// insert replacement at deleted Word's location
-	insert := &docs.Request{
-		InsertText: &docs.InsertTextRequest{
-			Text: replace,
-			Location: &docs.Location{
-				Index: Word.index,
-			},
-		},
-	}
-	requests := []*docs.Request{delete, insert}
-	newSize := getUtf16StringSize(replace)
-	diff := newSize - Word.size
-	Word.size = newSize
-	// update ranges for words that follow this Word
-	for _, w := range wordsAfter {
-		w.index += diff
-	}
-	return requests
-}
-
-func getFontRequest(startIndex, endIndex int64) *docs.Request {
-	return &docs.Request{
-		UpdateTextStyle: &docs.UpdateTextStyleRequest{
-			Fields: weightedFontFamily,
-			Range: &docs.Range{
-				StartIndex: startIndex,
-				EndIndex:   endIndex,
-			},
-			TextStyle: &docs.TextStyle{
-				WeightedFontFamily: &docs.WeightedFontFamily{
-					FontFamily: courierNew,
-				},
-			},
-		},
-	}
-}
-
-func getBatchUpdate(requests []*docs.Request) *docs.BatchUpdateDocumentRequest {
-	return &docs.BatchUpdateDocumentRequest{
-		Requests: requests,
-	}
-}
-
-func getRange(chars []*Char) (int64, int64) {
+func GetRange(chars []*Char) (int64, int64) {
 	startIndex := chars[0].index
 	lastChar := chars[len(chars)-1]
 	endIndex := lastChar.index + lastChar.size
 	return startIndex, endIndex
 }
-
-// // replace comment with space
-// func main() {
-// 	cs := getSlice("testing/* hello there */what up")
-// 	czz, wzz := SeparateComments(cs)
-// 	for _, c := range czz {
-// 		fmt.Printf("%c\n", c.content)
-// 	}
-// 	_ = czz
-// 	_ = wzz
-// 	// for _, w := range wzz {
-// 	// 	fmt.Println(w)
-// 	// }
-// 	// w := output.result.(*Word)
-// 	// fmt.Printf("\n%v", w.content)
-// 	// commInput = output.remaining.(commentInput)
-// 	// fmt.Printf("\n\n%c\n", commInput.current().content)
-// 	//fmt.Printf("\noutput: %s, remain: %v", output.result, output.remaining.(commentInput).chars[1:])
-// }
