@@ -10,11 +10,12 @@ import (
 const (
 	background         = "background"
 	foregroundColor    = "foregroundColor"
+	backgroundColor    = "backgroundColor"
 	weightedFontFamily = "weightedFontFamily"
 )
 
 // GetDocumentColorRequest gets a request to change the color of the document.
-func GetDocumentColorRequest(c style.Color) *docs.Request {
+func GetDocumentColorRequest(c *style.Color) *docs.Request {
 	return &docs.Request{
 		UpdateDocumentStyle: &docs.UpdateDocumentStyleRequest{
 			Fields: background,
@@ -35,8 +36,8 @@ func GetDocumentColorRequest(c style.Color) *docs.Request {
 	}
 }
 
-// GetColorRequest gets a request to change the color of a range.
-func GetColorRequest(c style.Color, startIndex, endIndex int64) *docs.Request {
+// GetForeColorRequest gets a request to change the foreground color of a range.
+func GetForeColorRequest(c *style.Color, startIndex, endIndex int64) *docs.Request {
 	return &docs.Request{
 		UpdateTextStyle: &docs.UpdateTextStyleRequest{
 			Fields: foregroundColor,
@@ -53,6 +54,35 @@ func GetColorRequest(c style.Color, startIndex, endIndex int64) *docs.Request {
 							Green: c.Green,
 						},
 					},
+				},
+			},
+		},
+	}
+}
+
+// GetBackColorRequest gets a request to change the background color of a range.
+func GetBackColorRequest(c *style.Color, startIndex, endIndex int64) *docs.Request {
+	var color *docs.Color
+	// if c is nil, it is transparent
+	if c != nil {
+		color = &docs.Color{
+			RgbColor: &docs.RgbColor{
+				Red:   c.Red,
+				Blue:  c.Blue,
+				Green: c.Green,
+			},
+		}
+	}
+	return &docs.Request{
+		UpdateTextStyle: &docs.UpdateTextStyleRequest{
+			Fields: backgroundColor,
+			Range: &docs.Range{
+				StartIndex: startIndex,
+				EndIndex:   endIndex,
+			},
+			TextStyle: &docs.TextStyle{
+				BackgroundColor: &docs.OptionalColor{
+					Color: color,
 				},
 			},
 		},

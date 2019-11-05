@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strings"
 	"unicode"
-	"unicode/utf16"
 
 	"google.golang.org/api/docs/v1"
 )
@@ -69,9 +68,6 @@ func (input commentInput) current() *Char {
 
 func (input commentInput) advance() parserInput {
 	advancedPos := input.pos + 1
-	if advancedPos >= len(input.chars) {
-		return nil
-	}
 	return commentInput{advancedPos, input.chars}
 }
 
@@ -79,8 +75,8 @@ func success(result interface{}, input parserInput) parserOutput {
 	return parserOutput{result, input}
 }
 
-func fail(input parserInput) parserOutput {
-	return parserOutput{nil, input}
+func fail() parserOutput {
+	return parserOutput{nil, nil}
 }
 
 // should i use ptr?
@@ -88,31 +84,31 @@ func fail(input parserInput) parserOutput {
 
 // expectword /* expectspace or nothing, expectword */
 
-type isRuneFunc func(r rune) bool
-
 // if never gets what it is looking for, then whatever
 
 // consume until the next thing is non-null?
+// strict means i must find the thing
 func searchUntil(p parser) parser {
 	return func(input parserInput) parserOutput {
 		var results []*Char
 		output := p(input)
 		for ; output.result == nil; output = p(input) {
-			//input = output.remaining
 			output = expectChar(anyRune())(input)
 			if output.result == nil {
+				// reached end, did not find
 				return success(search{results, nil}, input)
 			}
 			results = append(results, output.result.(*Char))
-			fmt.Printf("\nAppended: %c", output.result.(*Char).content)
 			input = output.remaining
 		}
-		input = output.remaining
-		return success(search{results, output.result}, input)
+		// output.result will determine if we reached the end or not
+		return success(search{results, output.result}, output.remaining)
 	}
 
 }
 
+// Selects the first parser in a slice of
+// parsers that successfully parses the input
 func selectAny(parsers []parser) parser {
 	return func(input parserInput) parserOutput {
 		for _, p := range parsers {
@@ -120,10 +116,12 @@ func selectAny(parsers []parser) parser {
 				return output
 			}
 		}
-		return fail(input)
+		return fail()
 	}
 }
 
+// Gets a filler character with size of 1
+// and value as a space
 func getFillerChar(index int64) *Char {
 	return &Char{index, 1, ' '}
 }
@@ -137,7 +135,7 @@ func SeparateComments(language style.Language, chars []*Char) ([]*Char, []*Word)
 	var cs []*Char
 	var ws []*Word
 	var input parserInput = commentInput{0, chars}
-	for input != nil && input.current() != nil {
+	for input.current() != nil {
 		output := selectAny(commentParsers)(input)
 		if output.result != nil {
 			w := output.result.(*Word)
@@ -156,7 +154,7 @@ func expectComment(start string, end string) parser {
 	return func(input parserInput) parserOutput {
 		output := expectWord(start)(input)
 		if output.result == nil {
-			return fail(input)
+			return fail()
 		}
 		input = output.remaining
 		w := output.result.(*Word)
@@ -187,7 +185,7 @@ func expectWord(s string) parser {
 		for _, r := range s {
 			output := expectChar(isRune(r))(input)
 			if output.result == nil {
-				return fail(input)
+				return fail()
 			}
 			c := output.result.(*Char)
 			if w == nil {
@@ -200,26 +198,13 @@ func expectWord(s string) parser {
 	}
 }
 
-func anyRune() isRuneFunc {
-	return func(r1 rune) bool {
-		return true
-	}
-}
-
-func isRune(r1 rune) isRuneFunc {
-	return func(r2 rune) bool {
-		return r1 == r2
-	}
-}
-
+// Expects a given character based on
+// a boolean character function
 func expectChar(desired isRuneFunc) parser {
 	return func(input parserInput) parserOutput {
-		if input == nil {
-			return fail(input)
-		}
 		c := input.current()
 		if c == nil || !desired(c.content) {
-			return fail(input)
+			return fail()
 		}
 		return success(c, input.advance())
 	}
@@ -234,6 +219,7 @@ func GetSlice(s string) []*Char {
 	return cs
 }
 
+// GetWords gets a Word slice from a Char slice
 func GetWords(chars []*Char) []*Word {
 	var words []*Word
 	var b bytes.Buffer
@@ -241,8 +227,10 @@ func GetWords(chars []*Char) []*Word {
 	start := true
 	for _, Char := range chars {
 		if unicode.IsSpace(Char.content) {
+			// we are separating words by space characters
 			str := b.String()
 			if len(str) > 0 {
+				// word must have at least one char
 				size := GetUtf16StringSize(str)
 				words = append(words, &Word{index, size, str})
 				start = true
@@ -262,21 +250,6 @@ func GetWords(chars []*Char) []*Word {
 		words = append(words, &Word{index, size, str})
 	}
 	return words
-}
-
-// Get the size of a rune in UTF-16 format
-func GetUtf16RuneSize(r rune) int64 {
-	rUtf16 := utf16.Encode([]rune{r}) // convert to utf16, since indices in GDocs API are utf16
-	return int64(len(rUtf16))         // size of rune in utf16 format
-}
-
-// Get the size of a string in UTF-16 format
-func GetUtf16StringSize(s string) int64 {
-	var size int64
-	for _, r := range s {
-		size += GetUtf16RuneSize(r)
-	}
-	return size
 }
 
 // GetChars gets the slice of all chars, where

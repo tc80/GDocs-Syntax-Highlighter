@@ -17,7 +17,7 @@ type Comment struct {
 
 // Language represents a programming language
 type Language struct {
-	Keywords  map[string]Color
+	Keywords  map[string]*Color
 	Comments  []Comment
 	Shortcuts map[string]string
 	Font      string
@@ -26,7 +26,7 @@ type Language struct {
 var (
 	languages = map[string]Language{
 		"java": Language{
-			Keywords: map[string]Color{
+			Keywords: map[string]*Color{
 				"public": Red,
 				"static": Blue,
 				"void":   Green,

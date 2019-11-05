@@ -9,13 +9,15 @@ type Color struct {
 
 var (
 	// Black is the color black
-	Black = Color{}
+	Black = &Color{}
 	// White is the color white
-	White = Color{1, 1, 1}
+	White = &Color{1, 1, 1}
 	// Red is the color red
-	Red = Color{1, 0, 0}
+	Red = &Color{1, 0, 0}
 	// Green is the color green
-	Green = Color{0, 1, 0}
+	Green = &Color{0, 1, 0}
 	// Blue is the color blue
-	Blue = Color{0, 0, 1}
+	Blue = &Color{0, 0, 1}
+	// Transparent color
+	Transparent *Color
 )
