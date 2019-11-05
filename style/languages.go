@@ -6,6 +6,7 @@ package style
 // 	//IsCaseSensitive bool
 // }
 
+// Comment ...
 type Comment struct {
 	StartSymbol string
 	EndSymbol   string
@@ -39,16 +40,15 @@ var (
 				"psvm":  "public static void main(String[] args) {\n\n}",
 				"if-el": "if (cond) {\n\n} else {\n\n}",
 			},
-			Font: CourierNew,
+			Font: CourierNew, // maybe user defines font ?
 		},
 	}
 )
 
 // GetLanguage returns the Language specified
-// by the string parameter if found, else nil
-func GetLanguage(lang string) *Language {
-	if l, ok := languages[lang]; ok {
-		return &l
-	}
-	return nil
+// by the string parameter if the returned boolean
+// is true
+func GetLanguage(lang string) (Language, bool) {
+	l, ok := languages[lang]
+	return l, ok
 }

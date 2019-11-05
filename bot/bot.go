@@ -26,12 +26,17 @@ func start(docsService *docs.Service) {
 
 		chars := parser.GetChars(doc)
 
-		java := style.GetLanguage("java")
+		java, _ := style.GetLanguage("java")
 		chars, comms := parser.SeparateComments(java, chars)
 
 		if len(chars) == 0 {
 			continue
 		}
+
+		// underline if something is incorrect or spelled wrong ??/
+		// if something is wrong, highlight in red and for the error
+		// put in an actual gdocs comment
+		// when resolved, resolve the comment
 
 		var reqs []*docs.Request
 		startIndex, endIndex := parser.GetRange(chars)

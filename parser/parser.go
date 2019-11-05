@@ -129,7 +129,7 @@ func getFillerChar(index int64) *Char {
 }
 
 // SeparateComments does...
-func SeparateComments(language *style.Language, chars []*Char) ([]*Char, []*Word) {
+func SeparateComments(language style.Language, chars []*Char) ([]*Char, []*Word) {
 	var commentParsers []parser
 	for _, c := range language.Comments {
 		commentParsers = append(commentParsers, expectComment(c.StartSymbol, c.EndSymbol))
@@ -279,7 +279,8 @@ func GetUtf16StringSize(s string) int64 {
 	return size
 }
 
-// Get the slice of chars, where each Char holds a rune and its respective utf16 range
+// GetChars gets the slice of all chars, where
+// each Char holds a rune and its respective utf16 range
 func GetChars(doc *docs.Document) []*Char {
 	var chars []*Char
 	begin := false
