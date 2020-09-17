@@ -210,6 +210,7 @@ func expectChar(desired isRuneFunc) parser {
 	}
 }
 
+// GetSlice ...
 func GetSlice(s string) []*Char {
 	var cs []*Char
 	for _, r := range s {
@@ -286,6 +287,7 @@ func GetChars(doc *docs.Document) []*Char {
 	return chars
 }
 
+// GetRange ...
 func GetRange(chars []*Char) (int64, int64) {
 	startIndex := chars[0].index
 	lastChar := chars[len(chars)-1]
