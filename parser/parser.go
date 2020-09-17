@@ -150,6 +150,7 @@ func SeparateComments(language style.Language, chars []*Char) ([]*Char, []*Word)
 	return cs, ws
 }
 
+// comment
 func expectComment(start string, end string) parser {
 	return func(input parserInput) parserOutput {
 		output := expectWord(start)(input)
