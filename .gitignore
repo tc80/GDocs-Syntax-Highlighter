@@ -1,4 +1,4 @@
 .DS_Store
 ._.DS_Store
-token.json
-credentials.json
+auth/token.json
+auth/credentials.json
