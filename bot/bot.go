@@ -6,8 +6,10 @@ import (
 	"GDocs-Syntax-Highlighter/requests"
 	"GDocs-Syntax-Highlighter/style"
 	"context"
+	"flag"
 	"fmt"
 	"log"
+	"os"
 	"strings"
 	"time"
 
@@ -15,8 +17,7 @@ import (
 	"google.golang.org/api/option"
 )
 
-func start(docsService *docs.Service) {
-	docID := "12Wqdvk_jk_pIfcN87o7X9EYvn4ukWRgNkpATpJwm1yM"
+func start(docID string, docsService *docs.Service) {
 	for {
 		fmt.Println("loop")
 		doc, err := docsService.Documents.Get(docID).Do()
@@ -79,6 +80,15 @@ func start(docsService *docs.Service) {
 }
 
 func main() {
+	var docID string
+	flag.StringVar(&docID, "doc", "", "Set the Google Document ID.")
+	flag.Parse()
+
+	if docID == "" {
+		flag.Usage()
+		os.Exit(1)
+	}
+
 	// get authorized client
 	client, err := auth.GetAuthorizedClient()
 	if err != nil {
@@ -92,5 +102,5 @@ func main() {
 	}
 
 	// start checking document
-	start(docsService)
+	start(docID, docsService)
 }
