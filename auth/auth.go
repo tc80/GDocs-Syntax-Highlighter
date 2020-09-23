@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 
@@ -25,7 +26,7 @@ const (
 func authorizeClient(config *oauth2.Config) (*http.Client, error) {
 	token, err := checkForToken()
 	if err != nil {
-		fmt.Println("Unable to locate local token, attempting to get token from web.")
+		log.Println("Unable to locate local token, attempting to get token from web.")
 		token, err = requestNewToken(config)
 		if err != nil {
 			return nil, err
@@ -38,7 +39,7 @@ func authorizeClient(config *oauth2.Config) (*http.Client, error) {
 // Request a new token from the Docs API.
 func requestNewToken(config *oauth2.Config) (*oauth2.Token, error) {
 	// get authorization code
-	fmt.Printf("Enter auth code from: \n%v\n", config.AuthCodeURL(stateToken, oauth2.AccessTypeOffline))
+	log.Printf("Enter auth code from: \n%v\n", config.AuthCodeURL(stateToken, oauth2.AccessTypeOffline))
 	var auth string
 	_, err := fmt.Scan(&auth)
 	if err != nil {
@@ -74,7 +75,7 @@ func cacheToken(token *oauth2.Token) {
 	file, err := os.OpenFile(tokenPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 	defer file.Close()
 	if err != nil {
-		fmt.Printf("\nFailed to write token to file: %v", err)
+		log.Printf("\nFailed to write token to file: %v", err)
 		return
 	}
 
