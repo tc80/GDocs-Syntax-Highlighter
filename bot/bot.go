@@ -31,7 +31,9 @@ func start(docID string, docsService *docs.Service) {
 
 		// process each instance of code found in the Google Doc
 		for _, instance := range parser.GetCodeInstances(doc) {
-			reqs = append(reqs, request.UpdateBackgroundColor(style.DarkThemeBackground, request.GetRange(instance.StartIndex, instance.EndIndex)))
+			r := instance.Range()
+			reqs = append(reqs, request.UpdateBackgroundColor(style.DarkThemeBackground, r))
+			reqs = append(reqs, request.UpdateFont(*instance.Font, *instance.FontSize, r))
 			// // attempt to format if directive is bold and format is supported for this language
 			// if instance.Format.Bold && instance.Lang.Format != nil {
 			// 	if formatted, err := instance.Lang.Format(instance.Code); err != nil {
