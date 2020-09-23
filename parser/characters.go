@@ -1,6 +1,8 @@
 package parser
 
 import (
+	"fmt"
+	"strings"
 	"unicode/utf16"
 
 	"google.golang.org/api/docs/v1"
@@ -25,6 +27,29 @@ func isRune(r1 rune) isRuneFunc {
 	return func(r2 rune) bool {
 		return r1 == r2
 	}
+}
+
+// Gets the utf16 start and end indices of a target substring
+// located in a utf8 string with a particular starting index offset.
+func getUTF16SubstrIndices(target, utf8 string, offset int64) (startIndex, endIndex int64) {
+	index := strings.Index(utf8, target)
+	if index == -1 {
+		panic(fmt.Sprintf("target `%s` not found in `%s`", target, utf8))
+	}
+
+	// add utf16 sizes until we reach the target's start
+	startIndex += offset
+	for _, r := range utf8[:index] {
+		startIndex += GetUtf16RuneSize(r)
+	}
+
+	// endIndex is startIndex + utf16 size of target
+	endIndex = startIndex
+	for _, r := range target {
+		endIndex += GetUtf16RuneSize(r)
+	}
+
+	return
 }
 
 // GetUtf16RuneSize gets the size of a rune in UTF-16 format

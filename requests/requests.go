@@ -89,26 +89,38 @@ func GetBackColorRequest(c *style.Color, startIndex, endIndex int64) *docs.Reque
 	}
 }
 
+// GetDeleteRequest ...
+func GetDeleteRequest(start, end int64) *docs.Request {
+	return &docs.Request{
+		DeleteContentRange: &docs.DeleteContentRangeRequest{
+			Range: &docs.Range{
+				StartIndex: start,
+				EndIndex:   end,
+			},
+		},
+	}
+}
+
+// GetInsertRequest ...
+func GetInsertRequest(text string, start int64) *docs.Request {
+	return &docs.Request{
+		InsertText: &docs.InsertTextRequest{
+			Text: text,
+			Location: &docs.Location{
+				Index: start,
+			},
+		},
+	}
+}
+
 // GetReplaceRequest gets the requests to delete a Word and insert a new one in its place.
 func GetReplaceRequest(word *parser.Word, wordsAfter []*parser.Word, replace string) []*docs.Request {
 	// request to delete the Word
-	delete := &docs.Request{
-		DeleteContentRange: &docs.DeleteContentRangeRequest{
-			Range: &docs.Range{
-				StartIndex: word.Index,
-				EndIndex:   word.Index + word.Size,
-			},
-		},
-	}
+	delete := GetDeleteRequest(word.Index, word.Index+word.Size)
+
 	// request to insert the replacement at deleted Word's location
-	insert := &docs.Request{
-		InsertText: &docs.InsertTextRequest{
-			Text: replace,
-			Location: &docs.Location{
-				Index: word.Index,
-			},
-		},
-	}
+	insert := GetInsertRequest(replace, word.Index)
+
 	requests := []*docs.Request{delete, insert}
 	newSize := parser.GetUtf16StringSize(replace)
 	diff := newSize - word.Size
