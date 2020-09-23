@@ -3,38 +3,67 @@ package main
 import (
 	"GDocs-Syntax-Highlighter/auth"
 	"GDocs-Syntax-Highlighter/parser"
-	"GDocs-Syntax-Highlighter/requests"
+	"GDocs-Syntax-Highlighter/request"
 	"GDocs-Syntax-Highlighter/style"
 	"context"
 	"flag"
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"google.golang.org/api/docs/v1"
 	"google.golang.org/api/option"
 )
 
+const (
+	sleepTime = time.Second * 10
+)
+
 func start(docID string, docsService *docs.Service) {
 	for {
-		fmt.Println("loop")
 		doc, err := docsService.Documents.Get(docID).Do()
 		if err != nil {
 			log.Fatalf("Failed to get doc: %v", err)
 		}
 
-		// need to do some preprocessing first to get lowercase for keywords
-		instances := parser.GetCodeInstances(doc)
+		var reqs []*docs.Request
 
-		req := requests.GetForeColorRequest(style.Red, instances[0].Format.StartIndex, instances[0].Format.EndIndex)
-		update := requests.GetBatchUpdate([]*docs.Request{req})
+		// process each instance of code found in the Google Doc
+		for _, instance := range parser.GetCodeInstances(doc) {
+			reqs = append(reqs, request.UpdateBackgroundColor(style.DarkThemeBackground, request.GetRange(instance.StartIndex, instance.EndIndex)))
+			// // attempt to format if directive is bold and format is supported for this language
+			// if instance.Format.Bold && instance.Lang.Format != nil {
+			// 	if formatted, err := instance.Lang.Format(instance.Code); err != nil {
+			// 		// TODO: insert as Google Docs comment?
+			// 		log.Printf("Failed to format: %v\n", err)
+			// 	} else {
+			// 		// after formatting, need to know the new start and end indices???
 
-		response, err := docsService.Documents.BatchUpdate(docID, update).Do()
-		_ = response
-		if err != nil {
-			fmt.Printf("\n\nERROR!!!!!: %v", err)
-			log.Fatalf("%v", err)
+			// 		reqs = append(reqs, requests.GetDeleteRequest(instance.StartIndex, instance.EndIndex))
+			// 		reqs = append(reqs, requests.GetInsertRequest)
+			// 		// 	req2 := requests.GetInsertRequest(res, begin)
+			// 		instance.Code = formatted
+			// 	}
+			// }
+			fmt.Println(instance.Lang.Format)
+			_ = instance
+			//request.GetDocumentColorRequest()
 		}
+
+		if len(reqs) > 0 {
+			update := request.BatchUpdate(reqs)
+			_, err := docsService.Documents.BatchUpdate(docID, update).Do()
+			if err != nil {
+				log.Fatalf("Failed to update Google Doc: %v\n", err)
+			}
+		}
+
+		log.Println("Sleeping...")
+		time.Sleep(sleepTime)
+
+		// req := requests.GetForeColorRequest(style.Red, instances[0].Format.StartIndex, instances[0].Format.EndIndex)
+		// update := requests.GetBatchUpdate([]*docs.Request{req})
 
 		os.Exit(1)
 
@@ -109,15 +138,6 @@ func start(docID string, docsService *docs.Service) {
 		// 		reqs = append(reqs, requests.GetReplaceRequest(w, words[i+1:], replace)...)
 		// 	}
 		// }
-		// update := requests.GetBatchUpdate(reqs)
-		// response, err := docsService.Documents.BatchUpdate(docID, update).Do()
-		// _ = response
-
-		// if err != nil {
-		// 	fmt.Printf("\n\nERROR!!!!!: %v", err)
-		// 	log.Fatalf("%v", err)
-		// }
-		// time.Sleep(1000 * time.Millisecond)
 	}
 }
 
