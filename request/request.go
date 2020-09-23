@@ -10,6 +10,8 @@ const (
 	foregroundColor    = "foregroundColor"
 	backgroundColor    = "backgroundColor"
 	weightedFontFamily = "weightedFontFamily"
+	fontSize           = "fontSize"
+	pointUnit          = "PT"
 )
 
 // UpdateDocBackground gets a request to change the background color of the document.
@@ -97,12 +99,16 @@ func Delete(r *docs.Range) *docs.Request {
 }
 
 // UpdateFont gets the request to update a range with a particular font.
-func UpdateFont(font string, r *docs.Range) *docs.Request {
+func UpdateFont(font string, size float64, r *docs.Range) *docs.Request {
 	return &docs.Request{
 		UpdateTextStyle: &docs.UpdateTextStyleRequest{
-			Fields: weightedFontFamily,
+			Fields: getFields(weightedFontFamily, fontSize),
 			Range:  r,
 			TextStyle: &docs.TextStyle{
+				FontSize: &docs.Dimension{
+					Magnitude: size,
+					Unit:      pointUnit,
+				},
 				WeightedFontFamily: &docs.WeightedFontFamily{
 					FontFamily: font,
 				},
