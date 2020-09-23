@@ -1,23 +1,75 @@
 package style
 
-// Color represents an RGB color
-type Color struct {
-	Red   float64 // the red value from 0.0 to 1.0
-	Green float64 // the green value from 0.0 to 1.0
-	Blue  float64 // the blue value from 0.0 to 1.0
-}
+import (
+	"encoding/hex"
+	"log"
+
+	"google.golang.org/api/docs/v1"
+)
 
 var (
-	// Black is the color black
-	Black = &Color{}
-	// White is the color white
-	White = &Color{1, 1, 1}
-	// Red is the color red
-	Red = &Color{1, 0, 0}
-	// Green is the color green
-	Green = &Color{0, 1, 0}
-	// Blue is the color blue
-	Blue = &Color{0, 0, 1}
-	// Transparent color
-	Transparent *Color
+	// Transparent color.
+	Transparent *docs.Color
+
+	// Note that some of the following hex codes are taken from the VSCode themes found here:
+	// https://github.com/microsoft/vscode/tree/master/extensions/theme-defaults/themes
+
+	// DarkThemeBackground is VSCode's dark theme background color (gray).
+	DarkThemeBackground = getColorFromHex("1E1E1E")
+
+	// DarkThemeYellow is VSCode's dark theme yellow color.
+	DarkThemeYellow = getColorFromHex("DCDCAA")
+
+	// DarkThemeGreenCyan is VSCode's dark theme green-cyan color.
+	DarkThemeGreenCyan = getColorFromHex("4EC9B0")
+
+	// DarkThemePaleGreen is VSCode's dark theme pale-green color.
+	DarkThemePaleGreen = getColorFromHex("B5CEA8")
+
+	// DarkThemePink is VSCode's dark theme pink color.
+	DarkThemePink = getColorFromHex("C586C0")
+
+	// DarkThemeLightBlue is VSCode's dark theme light blue color.
+	DarkThemeLightBlue = getColorFromHex("9CDCFE")
+
+	// DarkThemeBlue is VSCode's dark theme blue color.
+	DarkThemeBlue = getColorFromHex("4FC1FF")
+
+	// DarkThemeDarkBlue is VSCode's dark theme dark blue color.
+	DarkThemeDarkBlue = getColorFromHex("569CD6")
+
+	// DarkThemeLightRedOrange is VSCode's dark theme dark light red-orange color.
+	DarkThemeLightRedOrange = getColorFromHex("CE9178")
+
+	// DarkThemeLightRed is VSCode's dark theme dark theme light red color.
+	DarkThemeLightRed = getColorFromHex("D16969")
+
+	// DarkThemeStrawYellow is VSCode's dark theme dark theme straw-yellow color.
+	DarkThemeStrawYellow = getColorFromHex("D7BA7D")
 )
+
+// Gets an RGB color from red, green, blue values in [0.0, 1.0].
+func getColorFromRGB(r, g, b float64) *docs.Color {
+	return &docs.Color{
+		RgbColor: &docs.RgbColor{
+			Red:   r,
+			Green: g,
+			Blue:  b,
+		},
+	}
+}
+
+// Gets an RGB color from a hex code.
+func getColorFromHex(h string) *docs.Color {
+	b, err := hex.DecodeString(h)
+	if err != nil {
+		log.Fatalf("Failed to decode hex `%s`: %s\n", h, err)
+	}
+	return &docs.Color{
+		RgbColor: &docs.RgbColor{
+			Red:   float64(b[0]) / 255,
+			Green: float64(b[1]) / 255,
+			Blue:  float64(b[2]) / 255,
+		},
+	}
+}

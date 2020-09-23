@@ -13,6 +13,19 @@ var (
 	goImportsPath = getGoImportsPath() // path to `goimports`
 )
 
+// Format describes whether we will format the code (if the directive is bolded)
+// as well as the UTF16 indices of the directive (to unbold itself).
+type Format struct {
+	Bold       bool  // if bolded, format the code and then unbold the directive
+	StartIndex int64 // start index of directive
+	EndIndex   int64 // end index of directive
+}
+
+// FormatFunc describes a function that takes in a program
+// as text and returns the formatted program as text, as well as
+// an error if the code could not be formatted (most likely invalid code).
+type FormatFunc func(string) (string, error)
+
 // Gets the path for the `goimports` executable,
 // checking inside $GOPATH/bin if $GOBIN is unset.
 func getGoImportsPath() string {

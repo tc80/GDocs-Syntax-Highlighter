@@ -38,16 +38,7 @@ type CodeInstance struct {
 	Lang             *style.Language // the coding language
 	StartIndex       int64           // start index of code
 	EndIndex         int64           // end index of code
-	Format           *Format         // whether we are being requested to format the code
-}
-
-// Format describes whether we will format the code (if the directive is bolded)
-// as well as the UTF16 indices of the directive (to unbold itself).
-type Format struct {
-	Bold       bool  // if bolded, format the code and then unbold the directive
-	StartIndex int64 // start index of directive
-	EndIndex   int64 // end index of directive
-
+	Format           *style.Format   // whether we are being requested to format the code
 }
 
 // GetCodeInstances gets the instances of code that will be processed in
@@ -100,7 +91,7 @@ func GetCodeInstances(doc *docs.Document) []*CodeInstance {
 									cur.Lang = &defaultLang
 								}
 								if cur.Format == nil {
-									cur.Format = &Format{}
+									cur.Format = &style.Format{}
 								}
 								continue
 							}
@@ -108,7 +99,7 @@ func GetCodeInstances(doc *docs.Document) []*CodeInstance {
 							// check for format directive (and bolded)
 							if cur.Format == nil && strings.EqualFold(str, formatDirective) {
 								formatStart, formatEnd := getUTF16SubstrIndices(formatDirective, content, par.StartIndex)
-								cur.Format = &Format{
+								cur.Format = &style.Format{
 									Bold:       bold,
 									StartIndex: formatStart,
 									EndIndex:   formatEnd,
