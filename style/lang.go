@@ -6,84 +6,129 @@ import (
 	"google.golang.org/api/docs/v1"
 )
 
-// type Keyword struct {
-// 	// Value        string
-// 	KeywordColor Color
-// 	//IsCaseSensitive bool
-// }
-
-// Comment ...
-type Comment struct {
-	StartSymbol string
-	EndSymbol   string
-}
-
-//BackgroundColor  Color - should be specified by user
-//DefaultTextColor Color - should be specified by user
-
-// Language represents a programming language
+// Language represents a programming language.
 type Language struct {
 	Name      string
-	Keywords  map[string]map[string]*docs.Color
-	Comments  []Comment
-	Shortcuts map[string]string
-	Font      string
 	Format    FormatFunc
+	Shortcuts map[string]string
+	Themes    map[string]*Theme
+}
+
+// Theme represents a language's keywords, comments
+// and associated colors for a particular theme.
+type Theme struct {
+	Foreground *docs.Color
+	Background *docs.Color
+	Ranges     []*Range
+	Keywords   map[string]*docs.Color
+}
+
+// Range represents an area of text that
+// will receive the same color.
+// For instance, a comment.
+type Range struct {
+	StartSymbol string
+	EndSymbol   string
+	Color       *docs.Color
 }
 
 var (
-	// javaLang = Language{
-	// 	Name: "Java",
-	// 	Keywords: map[string]map[string]*docs.Color{
-	// 		"public": map[string]*docs.Color{},
-	// 		"static": Blue,
-	// 		"void":   Green,
-	// 		"if":     Blue,
-	// 	},
-	// 	Comments: []Comment{
-	// 		{"//", "\n"},
-	// 		{"/*", "*/"},
-	// 	},
-	// 	Shortcuts: map[string]string{
-	// 		"psvm":  "public static void main(String[] args) {\n\n}",
-	// 		"if-el": "if (cond) {\n\n} else {\n\n}",
-	// 	},
-	// 	Font: CourierNew, // maybe user defines font ?
-	// }
-	// goLang = Language{
-	// 	Name: "Go",
-	// 	Keywords: map[string]*Color{
-	// 		"package":     Red,
-	// 		"func":        Blue,
-	// 		"\"":          Green,
-	// 		"fmt.Println": Blue,
-	// 	},
-	// 	Comments: []Comment{
-	// 		{"//", "\n"},
-	// 		{"/*", "*/"},
-	// 	},
-	// 	Shortcuts: map[string]string{
-	// 		"psvm":  "public static void main(String[] args) {\n\n}",
-	// 		"if-el": "if (cond) {\n\n} else {\n\n}",
-	// 	},
-	// 	Font:   CourierNew, // maybe user defines font ?
-	// 	Format: FormatGo,
-	// }
-	languages = map[string]Language{
-		// "java": javaLang,
-		// "go":   goLang,
+	goLang = &Language{
+		Name:      "Go",
+		Format:    FormatGo,
+		Shortcuts: map[string]string{},
+		Themes: map[string]*Theme{
+			darkTheme: &Theme{
+				Foreground: DarkThemeForeground,
+				Background: DarkThemeBackground,
+				Ranges: []*Range{
+					&Range{"//", "\n", DarkThemePaleGreen},
+					&Range{"/*", "*/", DarkThemePaleGreen},
+					&Range{"'", "'", DarkThemeLightRedOrange},
+					&Range{"\"", "\"", DarkThemeLightRedOrange},
+					&Range{"`", "`", DarkThemeLightRedOrange},
+				},
+				Keywords: map[string]*docs.Color{
+					"break":       DarkThemePink,
+					"case":        DarkThemePink,
+					"continue":    DarkThemePink,
+					"default":     DarkThemePink,
+					"defer":       DarkThemePink,
+					"else":        DarkThemePink,
+					"fallthrough": DarkThemePink,
+					"for":         DarkThemePink,
+					"go":          DarkThemePink,
+					"goto":        DarkThemePink,
+					"if":          DarkThemePink,
+					"range":       DarkThemePink,
+					"return":      DarkThemePink,
+					"select":      DarkThemePink,
+					"switch":      DarkThemePink,
+					"chan":        DarkThemeDarkBlue,
+					"const":       DarkThemeDarkBlue,
+					"func":        DarkThemeDarkBlue,
+					"interface":   DarkThemeDarkBlue,
+					"map":         DarkThemeDarkBlue,
+					"struct":      DarkThemeDarkBlue,
+					"true":        DarkThemeDarkBlue,
+					"false":       DarkThemeDarkBlue,
+					"nil":         DarkThemeDarkBlue,
+					"iota":        DarkThemeDarkBlue,
+					"package":     DarkThemeDarkBlue,
+					"type":        DarkThemeDarkBlue,
+					"import":      DarkThemeDarkBlue,
+					"var":         DarkThemeDarkBlue,
+					"bool":        DarkThemeGreenCyan,
+					"byte":        DarkThemeGreenCyan,
+					"error":       DarkThemeGreenCyan,
+					"complex64":   DarkThemeGreenCyan,
+					"complex128":  DarkThemeGreenCyan,
+					"float32":     DarkThemeGreenCyan,
+					"float64":     DarkThemeGreenCyan,
+					"int8":        DarkThemeGreenCyan,
+					"int16":       DarkThemeGreenCyan,
+					"int32":       DarkThemeGreenCyan,
+					"int64":       DarkThemeGreenCyan,
+					"uint8":       DarkThemeGreenCyan,
+					"uint16":      DarkThemeGreenCyan,
+					"uint32":      DarkThemeGreenCyan,
+					"uint64":      DarkThemeGreenCyan,
+					"rune":        DarkThemeGreenCyan,
+					"string":      DarkThemeGreenCyan,
+					"uintptr":     DarkThemeGreenCyan,
+					"append":      DarkThemeYellow,
+					"cap":         DarkThemeYellow,
+					"close":       DarkThemeYellow,
+					"complex":     DarkThemeYellow,
+					"copy":        DarkThemeYellow,
+					"delete":      DarkThemeYellow,
+					"imag":        DarkThemeYellow,
+					"len":         DarkThemeYellow,
+					"make":        DarkThemeYellow,
+					"new":         DarkThemeYellow,
+					"panic":       DarkThemeYellow,
+					"print":       DarkThemeYellow,
+					"println":     DarkThemeYellow,
+					"real":        DarkThemeYellow,
+					"recover":     DarkThemeYellow,
+				},
+			},
+		},
+	}
+	languages = map[string]*Language{
+		"go": goLang,
 	}
 )
 
 // GetLanguage attempts to get a Language
 // from a case insensitive string.
-func GetLanguage(lang string) (Language, bool) {
+func GetLanguage(lang string) (*Language, bool) {
 	l, ok := languages[strings.ToLower(lang)]
 	return l, ok
 }
 
 // GetDefaultLanguage gets the default Language
 // if the directive is not set.
-func GetDefaultLanguage() Language {
-	return Language{}
+func GetDefaultLanguage() *Language {
+	return goLang
 }

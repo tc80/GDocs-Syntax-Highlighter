@@ -4,7 +4,6 @@ import (
 	"GDocs-Syntax-Highlighter/auth"
 	"GDocs-Syntax-Highlighter/parser"
 	"GDocs-Syntax-Highlighter/request"
-	"GDocs-Syntax-Highlighter/style"
 	"context"
 	"flag"
 	"fmt"
@@ -17,7 +16,7 @@ import (
 )
 
 const (
-	sleepTime = time.Second * 10
+	sleepTime = time.Second * 1
 )
 
 func start(docID string, docsService *docs.Service) {
@@ -31,26 +30,38 @@ func start(docID string, docsService *docs.Service) {
 
 		// process each instance of code found in the Google Doc
 		for _, instance := range parser.GetCodeInstances(doc) {
-			r := instance.Range()
-			reqs = append(reqs, request.UpdateBackgroundColor(style.DarkThemeBackground, r))
-			reqs = append(reqs, request.UpdateFont(*instance.Font, *instance.FontSize, r))
-			// // attempt to format if directive is bold and format is supported for this language
-			// if instance.Format.Bold && instance.Lang.Format != nil {
-			// 	if formatted, err := instance.Lang.Format(instance.Code); err != nil {
-			// 		// TODO: insert as Google Docs comment?
-			// 		log.Printf("Failed to format: %v\n", err)
-			// 	} else {
-			// 		// after formatting, need to know the new start and end indices???
+			lang := instance.Lang
 
-			// 		reqs = append(reqs, requests.GetDeleteRequest(instance.StartIndex, instance.EndIndex))
-			// 		reqs = append(reqs, requests.GetInsertRequest)
-			// 		// 	req2 := requests.GetInsertRequest(res, begin)
-			// 		instance.Code = formatted
-			// 	}
-			// }
-			fmt.Println(instance.Lang.Format)
-			_ = instance
-			//request.GetDocumentColorRequest()
+			// attempt to format
+			if instance.Format.Bold {
+				// unbold the #format directive to notify user that
+				// the code was formatted or attempted to be formatted
+				reqs = append(reqs, request.SetBold(false, request.GetRange(instance.Format.StartIndex, instance.Format.EndIndex)))
+
+				if lang.Format == nil {
+					panic(fmt.Sprintf("no format func defined for language: `%s`", lang.Name))
+				}
+				if formatted, err := lang.Format(instance.Code); err != nil {
+					// TODO: insert as Google Docs comment to notify of failure
+					log.Printf("Failed to format: %v\n", err)
+				} else {
+					// delete the old text and insert the new text
+					r := instance.GetRange()
+					reqs = append(reqs, request.Delete(r))
+					reqs = append(reqs, request.Insert(formatted, instance.StartIndex))
+
+					// After formatting, note that the new end index will be inaccurate
+					// since the content length may have changed.
+					// The end index will be updated later when we do further parsing.
+					instance.Code = formatted
+				}
+			}
+
+			// r := instance.GetRange()
+
+			// reqs = append(reqs, request.UpdateForegroundColor(theme.Foreground, r))
+			// reqs = append(reqs, request.UpdateBackgroundColor(theme.Background, r)) -- add 1 to range
+			// reqs = append(reqs, request.UpdateFont(*instance.Font, *instance.FontSize, r))
 		}
 
 		if len(reqs) > 0 {
@@ -67,7 +78,7 @@ func start(docID string, docsService *docs.Service) {
 		// req := requests.GetForeColorRequest(style.Red, instances[0].Format.StartIndex, instances[0].Format.EndIndex)
 		// update := requests.GetBatchUpdate([]*docs.Request{req})
 
-		os.Exit(1)
+		//os.Exit(1)
 
 		//res, err := style.FormatGo(text)
 		//fmt.Println(res)

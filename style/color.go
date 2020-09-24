@@ -14,8 +14,11 @@ var (
 	// Note that some of the following hex codes are taken from the VSCode themes found here:
 	// https://github.com/microsoft/vscode/tree/master/extensions/theme-defaults/themes
 
-	// DarkThemeBackground is VSCode's dark theme background color (gray).
+	// DarkThemeBackground is VSCode's dark theme background color (dark gray).
 	DarkThemeBackground = getColorFromHex("1E1E1E")
+
+	// DarkThemeForeground is VSCode's dark theme default foreground color (light gray/white).
+	DarkThemeForeground = getColorFromHex("D4D4D4")
 
 	// DarkThemeYellow is VSCode's dark theme yellow color.
 	DarkThemeYellow = getColorFromHex("DCDCAA")
@@ -25,6 +28,9 @@ var (
 
 	// DarkThemePaleGreen is VSCode's dark theme pale-green color.
 	DarkThemePaleGreen = getColorFromHex("B5CEA8")
+
+	// DarkThemeDarkGreen is VSCode's dark theme dark-green color.
+	DarkThemeDarkGreen = getColorFromHex("6A9955")
 
 	// DarkThemePink is VSCode's dark theme pink color.
 	DarkThemePink = getColorFromHex("C586C0")

@@ -26,15 +26,19 @@ const (
 
 var (
 	// Optional directive to specify the language of the code.
-	// If not set, #lang=<go> is assumed by default.
-	configLangRegex = regexp.MustCompile("^#lang=(\\w+)$")
+	// If not set, #lang=go is assumed by default.
+	configLangRegex = regexp.MustCompile("^#lang=([\\w_]+)$")
 
 	// Optional directive to specify the font of the code.
-	// If not set, #font=<Courier New> is assumed by default.
+	// If not set, #font=courier_new is assumed by default.
 	fontRegex = regexp.MustCompile("^#font=([\\w_]+)$")
 
+	// Optional directive to specify the theme of the code.
+	// If not set, #theme=dark is assumed by default.
+	themeRegex = regexp.MustCompile("^#theme=([\\w_]+)$")
+
 	// Optional directive to specify the font size of the code.
-	// If not set, #size=<11> is assumed by default.
+	// If not set, #size=11 is assumed by default.
 	fontSizeRegex = regexp.MustCompile("^#size=(\\d+(\\.\\d+)?)$")
 )
 
@@ -45,6 +49,7 @@ type CodeInstance struct {
 	foundConfigStart bool            // whether the config start tag was found
 	foundConfigEnd   bool            // whether the config end tag was found
 	Code             string          // the code as text
+	Theme            *string         // theme
 	Font             *string         // font
 	FontSize         *float64        // font size
 	Lang             *style.Language // the coding language
@@ -53,17 +58,22 @@ type CodeInstance struct {
 	Format           *style.Format   // whether we are being requested to format the code
 }
 
-// Range is a helper function to get the *docs.Range
+// GetRange gets the *docs.Range
 // for a particular code instance.
-func (c *CodeInstance) Range() *docs.Range {
+func (c *CodeInstance) GetRange() *docs.Range {
 	return request.GetRange(c.StartIndex, c.EndIndex)
+}
+
+// GetTheme gets the *style.Theme for a particular code instance.
+// Note that the language and theme fields must be valid.
+func (c *CodeInstance) GetTheme() *style.Theme {
+	return c.Lang.Themes[*c.Theme]
 }
 
 // Sets default values if unset.
 func (c *CodeInstance) setDefaults() {
 	if c.Lang == nil {
-		defaultLang := style.GetDefaultLanguage()
-		c.Lang = &defaultLang
+		c.Lang = style.GetDefaultLanguage()
 	}
 	if c.Format == nil {
 		c.Format = &style.Format{}
@@ -75,6 +85,10 @@ func (c *CodeInstance) setDefaults() {
 	if c.FontSize == nil {
 		defaultSize := style.DefaultFontSize
 		c.FontSize = &defaultSize
+	}
+	if c.Theme == nil {
+		defaultTheme := style.DefaultTheme
+		c.Theme = &defaultTheme
 	}
 }
 
@@ -97,7 +111,7 @@ func (c *CodeInstance) checkForHeader(s string, par *docs.ParagraphElement) {
 		return
 	}
 
-	// check for format directive (and bolded)
+	// check for format (must be bolded)
 	if c.Format == nil && strings.EqualFold(s, formatDirective) {
 		formatStart, formatEnd := getUTF16SubstrIndices(formatDirective, par.TextRun.Content, par.StartIndex)
 		c.Format = &style.Format{
@@ -108,11 +122,11 @@ func (c *CodeInstance) checkForHeader(s string, par *docs.ParagraphElement) {
 		return
 	}
 
-	// check for language directive
+	// check for language
 	if c.Lang == nil {
 		if res := configLangRegex.FindStringSubmatch(s); len(res) == 2 {
 			if lang, ok := style.GetLanguage(res[1]); ok {
-				c.Lang = &lang
+				c.Lang = lang
 			} else {
 				// TODO: maybe add a comment to the Google Doc
 				// in the future to notify of an invalid language name
@@ -144,6 +158,20 @@ func (c *CodeInstance) checkForHeader(s string, par *docs.ParagraphElement) {
 				log.Printf("Failed to parse font size `%s` into float64: %s\n", res[1], err)
 			} else {
 				c.FontSize = &float // if it is 0, will default to 1
+			}
+			return
+		}
+	}
+
+	// check for theme
+	if c.Theme == nil {
+		if res := themeRegex.FindStringSubmatch(s); len(res) == 2 {
+			if theme, ok := style.GetTheme(res[1]); ok {
+				c.Theme = &theme
+			} else {
+				// TODO: maybe add a comment to the Google Doc
+				// in the future to notify of an invalid language name
+				log.Printf("Unknown theme: `%s`\n", res[1])
 			}
 			return
 		}

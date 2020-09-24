@@ -11,6 +11,7 @@ const (
 	backgroundColor    = "backgroundColor"
 	weightedFontFamily = "weightedFontFamily"
 	fontSize           = "fontSize"
+	boldField          = "bold"
 	pointUnit          = "PT"
 )
 
@@ -94,6 +95,19 @@ func Delete(r *docs.Range) *docs.Request {
 	return &docs.Request{
 		DeleteContentRange: &docs.DeleteContentRangeRequest{
 			Range: r,
+		},
+	}
+}
+
+// SetBold sets a range to bold or not bold.
+func SetBold(bold bool, r *docs.Range) *docs.Request {
+	return &docs.Request{
+		UpdateTextStyle: &docs.UpdateTextStyleRequest{
+			Fields: boldField,
+			Range:  r,
+			TextStyle: &docs.TextStyle{
+				Bold: bold,
+			},
 		},
 	}
 }
