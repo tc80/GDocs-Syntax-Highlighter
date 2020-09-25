@@ -20,25 +20,6 @@ func getFields(fields ...string) string {
 	return strings.Join(fields, ",")
 }
 
-// // Replace gets the requests to delete a Word and insert a new one in its place.
-// func Replace(word *parser.Word, wordsAfter []*parser.Word, replace string) []*docs.Request {
-// 	// request to delete the Word
-// 	delete := Delete(GetRange(word.Index, word.Index+word.Size))
-
-// 	// request to insert the replacement at deleted Word's location
-// 	insert := Insert(replace, word.Index)
-
-// 	requests := []*docs.Request{delete, insert}
-// 	newSize := parser.GetUtf16StringSize(replace)
-// 	diff := newSize - word.Size
-// 	word.Size = newSize
-// 	// update ranges for Words that follow this Word
-// 	for _, w := range wordsAfter {
-// 		w.Index += diff
-// 	}
-// 	return requests
-// }
-
 // BatchUpdate gets the batch request from a slice of requests.
 func BatchUpdate(requests []*docs.Request) *docs.BatchUpdateDocumentRequest {
 	return &docs.BatchUpdateDocumentRequest{
