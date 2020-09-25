@@ -15,11 +15,7 @@ import (
 	"google.golang.org/api/option"
 )
 
-const (
-	sleepTime = time.Second * 1
-)
-
-func start(docID string, docsService *docs.Service) {
+func start(docID string, update time.Duration, verbose bool, docsService *docs.Service) {
 	for {
 		log.Println("Fetching Google Document...")
 		doc, err := docsService.Documents.Get(docID).Do()
@@ -30,7 +26,11 @@ func start(docID string, docsService *docs.Service) {
 		var reqs []*docs.Request
 
 		// process each instance of code found in the Google Doc
-		for _, instance := range parser.GetCodeInstances(doc) {
+		for i, instance := range parser.GetCodeInstances(doc) {
+			if verbose {
+				log.Printf("Processing Instance %d...\n", i+1)
+			}
+
 			if *instance.Shortcuts {
 				// note, need to update end index and make sure no shortcuts are in comments
 				log.Println("TODO - process shortcuts")
@@ -52,8 +52,7 @@ func start(docID string, docsService *docs.Service) {
 					log.Printf("Failed to format: %v\n", err)
 				} else {
 					// delete the old text and insert the new text
-					r := instance.GetRange()
-					reqs = append(reqs, request.Delete(r))
+					reqs = append(reqs, request.Delete(request.GetRange(instance.StartIndex, instance.EndIndex-1)))
 					reqs = append(reqs, request.Insert(formatted, instance.StartIndex))
 
 					// After formatting, note that the new end index will be inaccurate
@@ -71,7 +70,7 @@ func start(docID string, docsService *docs.Service) {
 			// map utf8 -> utf16, set end index
 			instance.MapToUTF16()
 
-			// set foreground, background, font, italics=false
+			// set foreground, background, font, italics=false, doc background=white
 			r, t := instance.GetRange(), instance.GetTheme()
 			reqs = append(reqs, request.UpdateForegroundColor(t.Foreground, r))
 			reqs = append(reqs, request.UpdateBackgroundColor(t.Background, r))
@@ -92,27 +91,36 @@ func start(docID string, docsService *docs.Service) {
 			update := request.BatchUpdate(reqs)
 			_, err := docsService.Documents.BatchUpdate(docID, update).Do()
 			if err != nil {
-				log.Fatalf("Failed to update Google Doc: %v\n", err)
+				log.Printf("Failed to update Google Doc: %v\n", err)
 			}
 		}
 
-		log.Println("Sleeping...")
-		time.Sleep(sleepTime)
+		if verbose {
+			log.Println("Sleeping...")
+		}
+		time.Sleep(update)
 
 		// TODO:
 		// replace illegal character U+201C
 		// replace illegal character U+201D
-
-		os.Exit(1)
 	}
 }
 
 func main() {
 	var docID string
+	var update int
+	var verbose bool
 	flag.StringVar(&docID, "doc", "", "Set the Google Document ID.")
+	flag.IntVar(&update, "update", 1500, "Interval in milliseconds (>= 500) to update the Google Document.")
+	flag.BoolVar(&verbose, "v", false, "Verbose mode.")
 	flag.Parse()
 
 	if docID == "" {
+		flag.Usage()
+		os.Exit(1)
+	}
+
+	if update < 500 {
 		flag.Usage()
 		os.Exit(1)
 	}
@@ -130,5 +138,5 @@ func main() {
 	}
 
 	// start checking document
-	start(docID, docsService)
+	start(docID, time.Duration(update)*time.Millisecond, verbose, docsService)
 }

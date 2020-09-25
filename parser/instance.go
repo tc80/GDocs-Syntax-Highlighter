@@ -180,10 +180,14 @@ func (c *CodeInstance) checkForHeader(s string, par *docs.ParagraphElement) {
 // GetCodeInstances gets the instances of code that will be processed in
 // a Google Doc. Each instance will be surrounded with <code> and </code> tags, as
 // well as a header containing info for configuration with <config> and </config> tags.
-func GetCodeInstances(doc *docs.Document) []*CodeInstance {
-	var instances []*CodeInstance
+func GetCodeInstances(doc *docs.Document) (instances []*CodeInstance) {
 	var cur *CodeInstance
-
+	defer func() {
+		if cur != nil {
+			cur.Code = cur.builder.String()
+			instances = append(instances, cur)
+		}
+	}()
 	for _, elem := range doc.Body.Content {
 		if elem.Paragraph != nil {
 			for _, par := range elem.Paragraph.Elements {

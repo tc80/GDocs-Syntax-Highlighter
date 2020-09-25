@@ -22,8 +22,8 @@ var (
 				Foreground: DarkThemeForeground,
 				Background: DarkThemeBackground,
 				Ranges: []*Range{
-					{"//", "\n", DarkThemePaleGreen},
-					{"/*", "*/", DarkThemePaleGreen},
+					{"//", "\n", DarkThemeDarkGreen},
+					{"/*", "*/", DarkThemeDarkGreen},
 					{"\"", "\"", DarkThemeLightRedOrange},
 					{"'", "'", DarkThemeLightRedOrange},
 					{"`", "`", DarkThemeLightRedOrange},
