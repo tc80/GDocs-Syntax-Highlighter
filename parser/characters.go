@@ -1,7 +1,9 @@
 package parser
 
 import (
+	"GDocs-Syntax-Highlighter/request"
 	"fmt"
+	"regexp"
 	"strings"
 	"unicode/utf16"
 
@@ -67,25 +69,34 @@ func GetUtf16StringSize(s string) int64 {
 	return size
 }
 
-// Gets all chars in a given document/line
-// Gets the slice of all chars, where
-// each Char holds a rune and its respective utf16 range
-func getAllChars(doc *docs.Document) []*Char {
-	var chars []*Char
-	for _, elem := range doc.Body.Content {
-		if elem.Paragraph != nil {
-			for _, par := range elem.Paragraph.Elements {
-				if par.TextRun != nil {
-					index := par.StartIndex
-					// iterate over runes
-					for _, r := range par.TextRun.Content {
-						size := GetUtf16RuneSize(r)                  // size of run in utf16 units
-						chars = append(chars, &Char{index, size, r}) // associate runes with ranges
-						index += size
-					}
-				}
-			}
+// MapToUTF16 maps the instance's utf8 non-empty Code string to utf16 rune indices + an offset.
+// Also sets the EndIndex in case it changed during any formatting.
+func (c *CodeInstance) MapToUTF16() {
+	if c.Code == "" {
+		panic("code must not be empty")
+	}
+
+	utf16Index := c.StartIndex
+	for i, r := range c.Code {
+		utf16Width := GetUtf16RuneSize(r)
+
+		// map zero-based utf8 -> utf16 + offset
+		c.toUTF16[i] = utf16Index
+		utf16Index += utf16Width
+	}
+	c.EndIndex = utf16Index
+}
+
+// Highlight tries
+func (c *CodeInstance) Highlight(r *regexp.Regexp, color *docs.Color) (reqs []*docs.Request) {
+	if results := r.FindAllStringSubmatchIndex(c.Code, -1); results != nil {
+		for _, res := range results {
+			utf8Start, utf8End := res[0], res[1]
+			utf16Size := GetUtf16StringSize(c.Code[utf8Start:utf8End])
+			utf16StartOffset := c.toUTF16[utf8Start]
+			utf16Range := request.GetRange(utf16StartOffset, utf16StartOffset+utf16Size)
+			reqs = append(reqs, request.UpdateForegroundColor(color, utf16Range))
 		}
 	}
-	return chars
+	return
 }

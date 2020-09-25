@@ -1,287 +1,259 @@
 package parser
 
-const (
-	// sometimes cannot find begin and end
-	// need to fix
-	beginSymbol = "~~begin~~"
-	endSymbol   = "~~end~~"
+import (
+	"GDocs-Syntax-Highlighter/request"
+	"GDocs-Syntax-Highlighter/style"
+	"fmt"
+	"strings"
+	"unicode/utf8"
+
+	"google.golang.org/api/docs/v1"
 )
 
-// Char is a rune and its respective utf16 start and end indices
-type Char struct {
-	index   int64 // the utf16 inclusive start index of the rune
-	size    int64 // the size of the rune in utf16 units
-	content rune  // the rune
-}
-
-// Word is a string and its respective utf16 start and end indices
-type Word struct {
-	Index   int64  // the utf16 inclusive start index of the string
-	Size    int64  // the size of the Word in utf16 units
-	Content string // the string
-}
-
+// Represents a parser.
 type parser func(parserInput) parserOutput
 
-// Comment
-type comment struct {
-	startSymbol string
-	endSymbol   string
-}
-
+// Functions to get the current rune the parser is processing
+// and to advance the rune stream.
 type parserInput interface {
-	current() *Char
-	advance() parserInput
+	current() (*rune, int)   // return current rune, its size
+	advance(int) parserInput // advance based on rune size
 }
 
+// The parsed result and the remaining stream.
 type parserOutput struct {
 	result    interface{}
 	remaining parserInput
 }
 
-type search struct {
-	results []*Char
-	desired interface{}
+type rangeResult struct {
+	start int
+	end   int
+	color *docs.Color
 }
 
-type commentInput struct {
+// Provides input for parsing a range.
+type rangeInput struct {
 	pos   int
-	chars []*Char // to allow nil
+	runes string
 }
 
-func (input commentInput) current() *Char {
-	if input.pos >= len(input.chars) {
-		return nil
+type rangeOutput struct {
+	result    string
+	rangeType *style.Range
+}
+
+// Gets the current rune and its size.
+func (in rangeInput) current() (*rune, int) {
+	if in.pos >= len(in.runes) {
+		return nil, 0
 	}
-	return input.chars[input.pos]
+	r, size := utf8.DecodeRuneInString(in.runes[in.pos:])
+	if r == utf8.RuneError {
+		panic("invalid rune")
+	}
+	return &r, size
 }
 
-func (input commentInput) advance() parserInput {
-	advancedPos := input.pos + 1
-	return commentInput{advancedPos, input.chars}
+// Advances to the next rune based on the previous rune's size.
+func (in rangeInput) advance(size int) parserInput {
+	return rangeInput{in.pos + size, in.runes}
 }
 
+// Denotes a parse success.
 func success(result interface{}, input parserInput) parserOutput {
 	return parserOutput{result, input}
 }
 
+// Denotes a parse failure.
 func fail() parserOutput {
 	return parserOutput{nil, nil}
 }
 
-// should i use ptr?
-// string size must be > 0
+// Enforces a property is non-nil.
+func check(e interface{}) {
+	if e != nil {
+		panic(fmt.Sprintf("check fail: %v", e))
+	}
+}
 
-// expectword /* expectspace or nothing, expectword */
+// Remove a string of characters at a utf8 index.
+type removeRange struct {
+	index    int
+	utf8Size int
+}
 
-// if never gets what it is looking for, then whatever
+// RemoveRanges removes the ranges from the instance's Code
+// string property and returns the list of requests to highlight them.
+func (c *CodeInstance) RemoveRanges(t *style.Theme) (reqs []*docs.Request) {
+	// create parser for each range
+	var rangeParsers []parser
+	for _, r := range t.Ranges {
+		rangeParsers = append(rangeParsers, expectRange(r))
+	}
 
-// consume until the next thing is non-null?
-// strict means i must find the thing
-// func searchUntil(p parser) parser {
-// 	return func(input parserInput) parserOutput {
-// 		var results []*Char
-// 		output := p(input)
-// 		for ; output.result == nil; output = p(input) {
-// 			output = expectChar(anyRune())(input)
-// 			if output.result == nil {
-// 				// reached end, did not find
-// 				return success(search{results, nil}, input)
-// 			}
-// 			results = append(results, output.result.(*Char))
-// 			input = output.remaining
-// 		}
-// 		// output.result will determine if we reached the end or not
-// 		return success(search{results, output.result}, output.remaining)
-// 	}
+	var removeRanges []removeRange
+	utf16Offsets := make(map[int]int64) // add utf16 offset at certain utf8 indices in the sanitized string
+	var utf8Offset int
+	in := rangeInput{runes: c.Code}
+	for r, size := in.current(); r != nil; r, size = in.current() {
+		out := selectAny(rangeParsers)(in)
+		if out.result != nil {
+			// if range found, consume it and remove from string
+			rOutput := out.result.(rangeOutput)
+			utf8StartIndex := in.pos
+			utf8Size := len(rOutput.result)
+			utf16Size := GetUtf16StringSize(rOutput.result)
+			utf16Offsets[utf8StartIndex+utf8Offset] = utf16Size
+			utf8Offset -= utf8Size
+			removeRanges = append(removeRanges, removeRange{utf8StartIndex, utf8Size})
 
-// }
+			// create request to update range's color using utf16 indices
+			utf16OffsetStartIndex := c.toUTF16[utf8StartIndex]
+			utf16Range := request.GetRange(utf16OffsetStartIndex, utf16OffsetStartIndex+utf16Size)
+			reqs = append(reqs, request.UpdateForegroundColor(rOutput.rangeType.Color, utf16Range))
 
-// // Selects the first parser in a slice of
-// // parsers that successfully parses the input
-// func selectAny(parsers []parser) parser {
-// 	return func(input parserInput) parserOutput {
-// 		for _, p := range parsers {
-// 			if output := p(input); output.result != nil {
-// 				return output
-// 			}
-// 		}
-// 		return fail()
-// 	}
-// }
+			in = out.remaining.(rangeInput)
+			continue
+		}
+		in = in.advance(size).(rangeInput)
+	}
 
-// // Gets a filler character with size of 1
-// // and value as a space
-// func getFillerChar(index int64) *Char {
-// 	return &Char{index, 1, ' '}
-// }
+	if len(removeRanges) == 0 {
+		return
+	}
 
-// // SeparateComments does...
-// func SeparateComments(language style.Language, chars []*Char) ([]*Char, []*Word) {
-// 	var commentParsers []parser
-// 	for _, c := range language.Comments {
-// 		commentParsers = append(commentParsers, expectComment(c.StartSymbol, c.EndSymbol))
-// 	}
-// 	var cs []*Char
-// 	var ws []*Word
-// 	var input parserInput = commentInput{0, chars}
-// 	for input.current() != nil {
-// 		output := selectAny(commentParsers)(input)
-// 		if output.result != nil {
-// 			w := output.result.(*Word)
-// 			ws = append(ws, w)                      // got a comment
-// 			cs = append(cs, getFillerChar(w.Index)) // put filler in for something like hello/**/world so it is hello world instead of helloworld
-// 			input = output.remaining
-// 			continue
-// 		}
-// 		cs = append(cs, input.current())
-// 		input = input.advance()
-// 	}
-// 	return cs, ws
-// }
+	var sanitized strings.Builder
+	var cur removeRange
 
-// // comment
-// func expectComment(start string, end string) parser {
-// 	return func(input parserInput) parserOutput {
-// 		output := expectWord(start)(input)
-// 		if output.result == nil {
-// 			return fail()
-// 		}
-// 		input = output.remaining
-// 		w := output.result.(*Word)
-// 		var b bytes.Buffer
-// 		b.WriteString(w.Content)
-// 		output = searchUntil(expectWord(end))(input)
-// 		s := output.result.(search)
-// 		for _, r := range s.results {
-// 			w.Size += r.size
-// 			b.WriteRune(r.content)
-// 		}
-// 		if s.desired != nil {
-// 			fmt.Println("found")
-// 			desired := s.desired.(*Word)
-// 			w.Size += desired.Size
-// 			b.WriteString(desired.Content)
-// 		}
-// 		input = output.remaining
-// 		w.Content = b.String()
-// 		fmt.Println(b.String())
-// 		return success(w, input)
-// 	}
-// }
+	// if something to remove, remove range from
+	for len(removeRanges) > 0 {
+		start := cur.index + cur.utf8Size
+		cur, removeRanges = removeRanges[0], removeRanges[1:] // pop from slice
+		sanitizedStr := c.Code[start:cur.index]
+		_, err := sanitized.WriteString(sanitizedStr)
+		check(err)
+	}
+	_, err := sanitized.WriteString(c.Code[cur.index+cur.utf8Size:])
+	check(err)
 
-// func expectWord(s string) parser {
-// 	return func(input parserInput) parserOutput {
-// 		var w *Word
-// 		for _, r := range s {
-// 			output := expectChar(isRune(r))(input)
-// 			if output.result == nil {
-// 				return fail()
-// 			}
-// 			c := output.result.(*Char)
-// 			if w == nil {
-// 				w = &Word{c.index, 0, s}
-// 			}
-// 			w.Size += c.size
-// 			input = output.remaining
-// 		}
-// 		return success(w, input)
-// 	}
-// }
+	// update code (removed ranges)
+	c.Code = sanitized.String()
 
-// // Expects a given character based on
-// // a boolean character function
-// func expectChar(desired isRuneFunc) parser {
-// 	return func(input parserInput) parserOutput {
-// 		c := input.current()
-// 		if c == nil || !desired(c.content) {
-// 			return fail()
-// 		}
-// 		return success(c, input.advance())
-// 	}
-// }
+	// update zero-based utf8 -> offset utf16 index mapping
+	utf16Index := c.StartIndex
+	c.toUTF16 = make(map[int]int64)
+	var r rune
+	for i, utf8Width := 0, 0; i < len(c.Code); {
+		if o, ok := utf16Offsets[i]; ok {
+			utf16Index += o // add utf16 offset for range removal
+		}
 
-// // GetSlice ...
-// func GetSlice(s string) []*Char {
-// 	var cs []*Char
-// 	for _, r := range s {
-// 		cs = append(cs, &Char{0, 0, r})
-// 	}
+		r, utf8Width = utf8.DecodeRuneInString(c.Code[i:])
+		c.toUTF16[i] = utf16Index
+		fmt.Println(i, " -> ", utf16Index)
 
-// 	return cs
-// }
+		utf16Index += GetUtf16RuneSize(r)
+		i += utf8Width
+	}
 
-// // GetWords gets a Word slice from a Char slice
-// func GetWords(chars []*Char) []*Word {
-// 	var words []*Word
-// 	var b bytes.Buffer
-// 	var index int64
-// 	start := true
-// 	for _, Char := range chars {
-// 		if unicode.IsSpace(Char.content) {
-// 			// we are separating words by space characters
-// 			str := b.String()
-// 			if len(str) > 0 {
-// 				// word must have at least one char
-// 				size := GetUtf16StringSize(str)
-// 				words = append(words, &Word{index, size, str})
-// 				start = true
-// 				b.Reset()
-// 			}
-// 			continue
-// 		}
-// 		if start {
-// 			index = Char.index
-// 			start = false
-// 		}
-// 		b.WriteRune(Char.content)
-// 	}
-// 	str := b.String()
-// 	if len(str) > 0 {
-// 		size := GetUtf16StringSize(str)
-// 		words = append(words, &Word{index, size, str})
-// 	}
-// 	return words
-// }
+	fmt.Println(c.EndIndex)
+	return
+}
 
-// // GetChars gets the slice of all chars, where
-// // each Char holds a rune and its respective utf16 range
-// func GetChars(doc *docs.Document) []*Char {
-// 	var chars []*Char
-// 	begin := false
-// 	for _, elem := range doc.Body.Content {
-// 		if elem.Paragraph != nil {
-// 			for _, par := range elem.Paragraph.Elements {
-// 				if par.TextRun != nil {
-// 					content := strings.TrimSpace(par.TextRun.Content)
-// 					fmt.Println(content)
-// 					if strings.EqualFold(content, endSymbol) {
-// 						return chars
-// 					}
-// 					if !begin {
-// 						if strings.EqualFold(content, beginSymbol) {
-// 							begin = true
-// 						}
-// 						continue
-// 					}
-// 					index := par.StartIndex
-// 					// iterate over runes
-// 					for _, r := range par.TextRun.Content {
-// 						size := GetUtf16RuneSize(r)                  // size of run in utf16 units
-// 						chars = append(chars, &Char{index, size, r}) // associate runes with ranges
-// 						index += size
-// 					}
-// 				}
-// 			}
-// 		}
-// 	}
-// 	return chars
-// }
+// Selects the first parser in a slice of
+// parsers that successfully parses the input.
+func selectAny(parsers []parser) parser {
+	return func(in parserInput) parserOutput {
+		for _, p := range parsers {
+			if out := p(in); out.result != nil {
+				return out
+			}
+		}
+		return fail() // all parsers failed
+	}
+}
 
-// // GetRange ...
-// func GetRange(chars []*Char) (int64, int64) {
-// 	startIndex := chars[0].index
-// 	lastChar := chars[len(chars)-1]
-// 	endIndex := lastChar.index + lastChar.size
-// 	return startIndex, endIndex
-// }
+// Parser for a symbol range.
+// The parser returns
+func expectRange(r *style.Range) parser {
+	return func(in parserInput) parserOutput {
+		// check for start symbol
+		out := expectString(r.StartSymbol)(in)
+		if out.result == nil {
+			return fail()
+		}
+		in = out.remaining
+		var b strings.Builder
+		_, err := b.WriteString(r.StartSymbol)
+		check(err)
+
+		// search until end symbol or end
+		out = searchUntil(expectString(r.EndSymbol))(in)
+		s := out.result.(search)
+		_, err = b.WriteString(s.consumed)
+		check(err)
+
+		// if end symbol found, add to builder
+		if s.result != nil {
+			_, err = b.WriteString(r.EndSymbol)
+			check(err)
+		}
+		in = out.remaining
+		return success(rangeOutput{b.String(), r}, in)
+	}
+}
+
+// Represents a search
+type search struct {
+	consumed string      // string of consumed runes while searching
+	result   interface{} // if the parser parsed something, the result would be here
+}
+
+// Parser that keep consuming all runes until the parser is successful
+// or the end is reached. It returns a search struct.
+func searchUntil(p parser) parser {
+	return func(in parserInput) parserOutput {
+		var consumed strings.Builder
+		out := p(in)
+		for ; out.result == nil; out = p(in) {
+			out = expectRune(anyRune())(in)
+			if out.result == nil {
+				// reached end, parser did not find anything
+				return success(search{consumed.String(), nil}, in)
+			}
+			_, err := consumed.WriteRune(out.result.(rune))
+			check(err)
+			in = out.remaining
+		}
+		// parser consumed something, so return
+		return success(search{consumed.String(), out.result}, out.remaining)
+	}
+}
+
+// Expects an exact string, rune-by-rune.
+// If success, parser returns the string.
+func expectString(s string) parser {
+	return func(in parserInput) parserOutput {
+		for _, r := range s {
+			out := expectRune(isRune(r))(in)
+			if out.result == nil {
+				return fail()
+			}
+			in = out.remaining
+		}
+		return success(s, in)
+	}
+}
+
+// Expects a given rune based on a boolean function.
+// If success, the parser returns the *rune.
+func expectRune(ok isRuneFunc) parser {
+	return func(in parserInput) parserOutput {
+		r, size := in.current()
+		if r == nil || !ok(*r) {
+			return fail()
+		}
+		return success(*r, in.advance(size))
+	}
+}

@@ -16,30 +16,12 @@ const (
 	codeInstanceEnd   = "</code>" // required tag to denote end of code instance
 	configStart       = "<conf>"  // required tag to denote start of config
 	configEnd         = "</conf>" // required tag to denote end of config
-
-	// Optional directive to specify if the code should be formatted.
-	// Note that formatting is not highlighting.
-	// If not present, the code will never be formatted.
-	// If present, the code is formatted every time the user bolds this config directive.
-	formatDirective = "#format"
 )
 
 var (
 	// Optional directive to specify the language of the code.
 	// If not set, #lang=go is assumed by default.
 	configLangRegex = regexp.MustCompile("^#lang=([\\w_]+)$")
-
-	// Optional directive to specify the font of the code.
-	// If not set, #font=courier_new is assumed by default.
-	fontRegex = regexp.MustCompile("^#font=([\\w_]+)$")
-
-	// Optional directive to specify the theme of the code.
-	// If not set, #theme=dark is assumed by default.
-	themeRegex = regexp.MustCompile("^#theme=([\\w_]+)$")
-
-	// Optional directive to specify the font size of the code.
-	// If not set, #size=11 is assumed by default.
-	fontSizeRegex = regexp.MustCompile("^#size=(\\d+(\\.\\d+)?)$")
 )
 
 // CodeInstance describes a section in the Google Doc
@@ -48,13 +30,15 @@ type CodeInstance struct {
 	builder          strings.Builder // string builder for code body
 	foundConfigStart bool            // whether the config start tag was found
 	foundConfigEnd   bool            // whether the config end tag was found
+	toUTF16          map[int]int64   // maps the indices of the zero-based utf8 rune in Code to utf16 rune indices+start utf16 offset
 	Code             string          // the code as text
 	Theme            *string         // theme
 	Font             *string         // font
 	FontSize         *float64        // font size
 	Lang             *style.Language // the coding language
-	StartIndex       int64           // start index of code
-	EndIndex         int64           // end index of code
+	StartIndex       int64           // utf16 start index of code
+	EndIndex         int64           // utf16 end index of code
+	Shortcuts        *bool           // whether shortcuts are enabled
 	Format           *style.Format   // whether we are being requested to format the code
 }
 
@@ -90,6 +74,13 @@ func (c *CodeInstance) setDefaults() {
 		defaultTheme := style.DefaultTheme
 		c.Theme = &defaultTheme
 	}
+	if c.Shortcuts == nil {
+		defaultShortcuts := style.DefaultShortcutSetting
+		c.Shortcuts = &defaultShortcuts
+	}
+	if c.toUTF16 == nil {
+		c.toUTF16 = make(map[int]int64)
+	}
 }
 
 // Checks for header tags/directives in a particular
@@ -112,13 +103,19 @@ func (c *CodeInstance) checkForHeader(s string, par *docs.ParagraphElement) {
 	}
 
 	// check for format (must be bolded)
-	if c.Format == nil && strings.EqualFold(s, formatDirective) {
-		formatStart, formatEnd := getUTF16SubstrIndices(formatDirective, par.TextRun.Content, par.StartIndex)
+	if c.Format == nil && strings.EqualFold(s, style.FormatDirective) {
+		formatStart, formatEnd := getUTF16SubstrIndices(style.FormatDirective, par.TextRun.Content, par.StartIndex)
 		c.Format = &style.Format{
 			Bold:       par.TextRun.TextStyle.Bold,
 			StartIndex: formatStart,
 			EndIndex:   formatEnd,
 		}
+		return
+	}
+
+	// check for shortcuts (must be bolded)
+	if c.Shortcuts == nil && strings.EqualFold(s, style.ShortcutsDirective) {
+		c.Shortcuts = &par.TextRun.TextStyle.Bold
 		return
 	}
 
@@ -138,7 +135,7 @@ func (c *CodeInstance) checkForHeader(s string, par *docs.ParagraphElement) {
 
 	// check for font
 	if c.Font == nil {
-		if res := fontRegex.FindStringSubmatch(s); len(res) == 2 {
+		if res := style.FontRegex.FindStringSubmatch(s); len(res) == 2 {
 			if font, ok := style.GetFont(res[1]); ok {
 				c.Font = &font
 			} else {
@@ -152,7 +149,7 @@ func (c *CodeInstance) checkForHeader(s string, par *docs.ParagraphElement) {
 
 	// check for font size
 	if c.FontSize == nil {
-		if res := fontSizeRegex.FindStringSubmatch(s); len(res) == 3 {
+		if res := style.FontSizeRegex.FindStringSubmatch(s); len(res) == 3 {
 			float, err := strconv.ParseFloat(res[1], 64)
 			if err != nil {
 				log.Printf("Failed to parse font size `%s` into float64: %s\n", res[1], err)
@@ -165,7 +162,7 @@ func (c *CodeInstance) checkForHeader(s string, par *docs.ParagraphElement) {
 
 	// check for theme
 	if c.Theme == nil {
-		if res := themeRegex.FindStringSubmatch(s); len(res) == 2 {
+		if res := style.ThemeRegex.FindStringSubmatch(s); len(res) == 2 {
 			if theme, ok := style.GetTheme(res[1]); ok {
 				c.Theme = &theme
 			} else {
