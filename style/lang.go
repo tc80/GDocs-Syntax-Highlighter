@@ -18,15 +18,15 @@ var (
 		Format:    FormatGo,
 		Shortcuts: map[string]string{},
 		Themes: map[string]*Theme{
-			DarkTheme: &Theme{
+			DarkTheme: {
 				Foreground: DarkThemeForeground,
 				Background: DarkThemeBackground,
 				Ranges: []*Range{
-					&Range{"//", "\n", DarkThemePaleGreen},
-					&Range{"/*", "*/", DarkThemePaleGreen},
-					&Range{"\"", "\"", DarkThemeLightRedOrange},
-					&Range{"'", "'", DarkThemeLightRedOrange},
-					&Range{"`", "`", DarkThemeLightRedOrange},
+					{"//", "\n", DarkThemePaleGreen},
+					{"/*", "*/", DarkThemePaleGreen},
+					{"\"", "\"", DarkThemeLightRedOrange},
+					{"'", "'", DarkThemeLightRedOrange},
+					{"`", "`", DarkThemeLightRedOrange},
 				},
 				Keywords: []Keyword{
 					{go1, DarkThemePink},

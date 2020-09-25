@@ -21,6 +21,7 @@ const (
 
 func start(docID string, docsService *docs.Service) {
 	for {
+		log.Println("Fetching Google Document...")
 		doc, err := docsService.Documents.Get(docID).Do()
 		if err != nil {
 			log.Fatalf("Failed to get doc: %v", err)
