@@ -17,7 +17,9 @@ import (
 
 func start(docID string, update time.Duration, verbose bool, docsService *docs.Service) {
 	for {
-		log.Println("Fetching Google Document...")
+		if verbose {
+			log.Println("Fetching Google Document...")
+		}
 		doc, err := docsService.Documents.Get(docID).Do()
 		if err != nil {
 			log.Fatalf("Failed to get doc: %v", err)
@@ -26,54 +28,47 @@ func start(docID string, update time.Duration, verbose bool, docsService *docs.S
 		var reqs []*docs.Request
 
 		// process each instance of code found in the Google Doc
-		for i, instance := range parser.GetCodeInstances(doc) {
-			if verbose {
-				log.Printf("Processing Instance %d...\n", i+1)
+		instance := parser.GetCodeInstance(doc)
+
+		if *instance.Shortcuts {
+			// note, need to update end index and make sure no shortcuts are in comments
+			log.Println("TODO - process shortcuts")
+		}
+
+		// attempt to format
+		if instance.Format.Bold {
+			// unbold the #format directive to notify user that
+			// the code was formatted or attempted to be formatted
+			reqs = append(reqs, request.SetBold(false, instance.Format.GetRange()))
+			fmt.Println(instance.Format.GetRange())
+
+			if instance.Lang.Format == nil {
+				panic(fmt.Sprintf("no format func defined for language: `%s`", instance.Lang.Name))
 			}
+			if formatted, err := instance.Lang.Format(instance.Code); err != nil {
+				// TODO: insert as Google Docs comment to notify of failure
+				log.Printf("Failed to format: %v\n", err)
+			} else {
+				// delete the old text and insert the new text
+				reqs = append(reqs, request.Delete(request.GetRange(*instance.StartIndex, *instance.EndIndex-1, "")))
+				reqs = append(reqs, request.Insert(formatted, *instance.StartIndex))
 
-			if *instance.Shortcuts {
-				// note, need to update end index and make sure no shortcuts are in comments
-				log.Println("TODO - process shortcuts")
+				// After formatting, note that the new end index will be inaccurate
+				// since the content length may have changed.
+				// The end index will be updated later when we do further parsing.
+				instance.Code = formatted
 			}
+		}
 
-			lang := instance.Lang
-
-			// attempt to format
-			if instance.Format.Bold {
-				// unbold the #format directive to notify user that
-				// the code was formatted or attempted to be formatted
-				reqs = append(reqs, request.SetBold(false, instance.Format.GetRange()))
-
-				if lang.Format == nil {
-					panic(fmt.Sprintf("no format func defined for language: `%s`", lang.Name))
-				}
-				if formatted, err := lang.Format(instance.Code); err != nil {
-					// TODO: insert as Google Docs comment to notify of failure
-					log.Printf("Failed to format: %v\n", err)
-				} else {
-					// delete the old text and insert the new text
-					reqs = append(reqs, request.Delete(request.GetRange(instance.StartIndex, instance.EndIndex-1)))
-					reqs = append(reqs, request.Insert(formatted, instance.StartIndex))
-
-					// After formatting, note that the new end index will be inaccurate
-					// since the content length may have changed.
-					// The end index will be updated later when we do further parsing.
-					instance.Code = formatted
-				}
-			}
-
-			// ignore empty code
-			if instance.Code == "" {
-				continue
-			}
-
+		// ignore empty code
+		if instance.Code != "" {
 			// map utf8 -> utf16, set end index
 			instance.MapToUTF16()
 
 			// set foreground, background, font, italics=false, doc background=white
 			r, t := instance.GetRange(), instance.GetTheme()
 			reqs = append(reqs, request.UpdateForegroundColor(t.Foreground, r))
-			reqs = append(reqs, request.UpdateBackgroundColor(t.Background, r))
+			reqs = append(reqs, request.UpdateDocBackground(t.Background))
 			reqs = append(reqs, request.UpdateFont(*instance.Font, *instance.FontSize, r))
 			reqs = append(reqs, request.SetItalics(false, r))
 
@@ -82,16 +77,16 @@ func start(docID string, update time.Duration, verbose bool, docsService *docs.S
 
 			// highlight keywords using regexes
 			for _, k := range t.Keywords {
-				reqs = append(reqs, instance.Highlight(k.Regex, k.Color)...)
+				reqs = append(reqs, instance.Highlight(k.Regex, k.Color, "")...)
 			}
-		}
 
-		// update Google Document
-		if len(reqs) > 0 {
-			update := request.BatchUpdate(reqs)
-			_, err := docsService.Documents.BatchUpdate(docID, update).Do()
-			if err != nil {
-				log.Printf("Failed to update Google Doc: %v\n", err)
+			// update Google Document
+			if len(reqs) > 0 {
+				update := request.BatchUpdate(reqs)
+				_, err := docsService.Documents.BatchUpdate(docID, update).Do()
+				if err != nil {
+					log.Printf("Failed to update Google Doc: %v\n", err)
+				}
 			}
 		}
 

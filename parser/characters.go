@@ -76,7 +76,7 @@ func (c *CodeInstance) MapToUTF16() {
 		panic("code must not be empty")
 	}
 
-	utf16Index := c.StartIndex
+	utf16Index := *c.StartIndex
 	for i, r := range c.Code {
 		utf16Width := GetUtf16RuneSize(r)
 
@@ -84,17 +84,17 @@ func (c *CodeInstance) MapToUTF16() {
 		c.toUTF16[i] = utf16Index
 		utf16Index += utf16Width
 	}
-	c.EndIndex = utf16Index
+	c.EndIndex = &utf16Index
 }
 
-// Highlight tries
-func (c *CodeInstance) Highlight(r *regexp.Regexp, color *docs.Color) (reqs []*docs.Request) {
+// Highlight gets the requests to highlight all matches of a regular expression with a particular color.
+func (c *CodeInstance) Highlight(r *regexp.Regexp, color *docs.Color, segmentID string) (reqs []*docs.Request) {
 	if results := r.FindAllStringSubmatchIndex(c.Code, -1); results != nil {
 		for _, res := range results {
 			utf8Start, utf8End := res[0], res[1]
 			utf16Size := GetUtf16StringSize(c.Code[utf8Start:utf8End])
 			utf16StartOffset := c.toUTF16[utf8Start]
-			utf16Range := request.GetRange(utf16StartOffset, utf16StartOffset+utf16Size)
+			utf16Range := request.GetRange(utf16StartOffset, utf16StartOffset+utf16Size, segmentID)
 			reqs = append(reqs, request.UpdateForegroundColor(color, utf16Range))
 		}
 	}

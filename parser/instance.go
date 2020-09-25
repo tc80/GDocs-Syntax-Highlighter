@@ -11,13 +11,6 @@ import (
 	"google.golang.org/api/docs/v1"
 )
 
-const (
-	codeInstanceStart = "<code>"  // required tag to denote start of code instance
-	codeInstanceEnd   = "</code>" // required tag to denote end of code instance
-	configStart       = "<conf>"  // required tag to denote start of config
-	configEnd         = "</conf>" // required tag to denote end of config
-)
-
 var (
 	// Optional directive to specify the language of the code.
 	// If not set, #lang=go is assumed by default.
@@ -27,25 +20,22 @@ var (
 // CodeInstance describes a section in the Google Doc
 // that has a config and code fragment.
 type CodeInstance struct {
-	builder          strings.Builder // string builder for code body
-	foundConfigStart bool            // whether the config start tag was found
-	foundConfigEnd   bool            // whether the config end tag was found
-	toUTF16          map[int]int64   // maps the indices of the zero-based utf8 rune in Code to utf16 rune indices+start utf16 offset
-	Code             string          // the code as text
-	Theme            *string         // theme
-	Font             *string         // font
-	FontSize         *float64        // font size
-	Lang             *style.Language // the coding language
-	StartIndex       int64           // utf16 start index of code
-	EndIndex         int64           // utf16 end index of code
-	Shortcuts        *bool           // whether shortcuts are enabled
-	Format           *style.Format   // whether we are being requested to format the code
+	toUTF16    map[int]int64   // maps the indices of the zero-based utf8 rune in Code to utf16 rune indices+start utf16 offset
+	Code       string          // the code as text
+	Theme      *string         // theme
+	Font       *string         // font
+	FontSize   *float64        // font size
+	Lang       *style.Language // the coding language
+	StartIndex *int64          // utf16 start index of code
+	EndIndex   *int64          // utf16 end index of code
+	Shortcuts  *bool           // whether shortcuts are enabled
+	Format     *style.Format   // whether we are being requested to format the code
 }
 
 // GetRange gets the *docs.Range
 // for a particular code instance.
 func (c *CodeInstance) GetRange() *docs.Range {
-	return request.GetRange(c.StartIndex, c.EndIndex)
+	return request.GetRange(*c.StartIndex, *c.EndIndex, "")
 }
 
 // GetTheme gets the *style.Theme for a particular code instance.
@@ -55,6 +45,7 @@ func (c *CodeInstance) GetTheme() *style.Theme {
 }
 
 // Sets default values if unset.
+// Does not set start/end indices.
 func (c *CodeInstance) setDefaults() {
 	if c.Lang == nil {
 		c.Lang = style.GetDefaultLanguage()
@@ -83,25 +74,9 @@ func (c *CodeInstance) setDefaults() {
 	}
 }
 
-// Checks for header tags/directives in a particular
+// Checks for config directives in a particular
 // string that is located in a *docs.ParagraphElement.
-func (c *CodeInstance) checkForHeader(s string, par *docs.ParagraphElement) {
-	// search for start of config tags
-	if !c.foundConfigStart {
-		if strings.EqualFold(s, configStart) {
-			c.foundConfigStart = true
-		}
-		return
-	}
-
-	// check for end of config
-	if strings.EqualFold(s, configEnd) {
-		c.foundConfigEnd = true
-		c.StartIndex = par.EndIndex
-		c.setDefaults()
-		return
-	}
-
+func (c *CodeInstance) checkForConfig(s, segmentID string, par *docs.ParagraphElement) {
 	// check for format (must be bolded)
 	if c.Format == nil && strings.EqualFold(s, style.FormatDirective) {
 		formatStart, formatEnd := getUTF16SubstrIndices(style.FormatDirective, par.TextRun.Content, par.StartIndex)
@@ -109,6 +84,7 @@ func (c *CodeInstance) checkForHeader(s string, par *docs.ParagraphElement) {
 			Bold:       par.TextRun.TextStyle.Bold,
 			StartIndex: formatStart,
 			EndIndex:   formatEnd,
+			SegmentID:  segmentID,
 		}
 		return
 	}
@@ -177,60 +153,61 @@ func (c *CodeInstance) checkForHeader(s string, par *docs.ParagraphElement) {
 	log.Printf("Unexpected config token: `%s`\n", s)
 }
 
-// GetCodeInstances gets the instances of code that will be processed in
-// a Google Doc. Each instance will be surrounded with <code> and </code> tags, as
-// well as a header containing info for configuration with <config> and </config> tags.
-func GetCodeInstances(doc *docs.Document) (instances []*CodeInstance) {
-	var cur *CodeInstance
-	defer func() {
-		if cur != nil {
-			cur.Code = cur.builder.String()
-			instances = append(instances, cur)
-		}
-	}()
-	for _, elem := range doc.Body.Content {
-		if elem.Paragraph != nil {
-			for _, par := range elem.Paragraph.Elements {
-				if par.TextRun != nil {
-					content := par.TextRun.Content
-					italics := par.TextRun.TextStyle.Italic
+// GetCodeInstance gets the config and instances of code and that
+// will be processed in a Google Doc.
+func GetCodeInstance(doc *docs.Document) *CodeInstance {
+	c := new(CodeInstance)
 
-					if cur == nil || !cur.foundConfigEnd {
-						// iterate over each word
-						for _, s := range strings.Fields(content) {
-							// note: all tags must be in italics to separate them
-							// from any collision with the code body
-							if !italics {
-								continue // ignore non-italics
-							}
-
-							// have not found start of instance yet so check for start symbol
-							if cur == nil {
-								if strings.EqualFold(s, codeInstanceStart) {
-									cur = &CodeInstance{}
-								}
-								continue
-							}
-
-							cur.checkForHeader(s, par)
+	// check for config in Google Doc headers
+	for _, h := range doc.Headers {
+		for _, elem := range h.Content {
+			if elem.Paragraph != nil {
+				for _, par := range elem.Paragraph.Elements {
+					if par.TextRun != nil {
+						for _, s := range strings.Fields(par.TextRun.Content) {
+							c.checkForConfig(s, h.HeaderId, par)
 						}
-						continue
 					}
-
-					// check for footer/end symbol
-					if italics && strings.EqualFold(strings.TrimSpace(content), codeInstanceEnd) {
-						cur.Code = cur.builder.String()
-						instances = append(instances, cur)
-						cur = nil
-						continue
-					}
-
-					// write untrimmed body content, update end index
-					cur.builder.WriteString(content)
-					cur.EndIndex = par.EndIndex
 				}
 			}
 		}
 	}
-	return instances
+
+	// check for config in Google Doc footers
+	for _, f := range doc.Footers {
+		for _, elem := range f.Content {
+			if elem.Paragraph != nil {
+				for _, par := range elem.Paragraph.Elements {
+					if par.TextRun != nil {
+						for _, s := range strings.Fields(par.TextRun.Content) {
+							c.checkForConfig(s, f.FooterId, par)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// concatenate Google Doc body
+	var b strings.Builder
+	for _, elem := range doc.Body.Content {
+		if elem.Paragraph != nil {
+			for _, par := range elem.Paragraph.Elements {
+				if par.TextRun != nil {
+					if c.StartIndex == nil {
+						c.StartIndex = &par.StartIndex
+					}
+					c.EndIndex = &par.EndIndex
+					_, err := b.WriteString(par.TextRun.Content)
+					check(err)
+				}
+			}
+		}
+	}
+	c.Code = b.String()
+
+	// set defaults
+	c.setDefaults()
+
+	return c
 }

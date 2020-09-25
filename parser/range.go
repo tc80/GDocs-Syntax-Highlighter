@@ -73,7 +73,7 @@ func (c *CodeInstance) RemoveRanges(t *style.Theme) (reqs []*docs.Request) {
 
 			// create request to update range's color using utf16 indices
 			utf16OffsetStartIndex := c.toUTF16[utf8StartIndex]
-			utf16Range := request.GetRange(utf16OffsetStartIndex, utf16OffsetStartIndex+utf16Size)
+			utf16Range := request.GetRange(utf16OffsetStartIndex, utf16OffsetStartIndex+utf16Size, "")
 			reqs = append(reqs, request.UpdateForegroundColor(rOutput.rangeType.Color, utf16Range))
 
 			in = out.remaining.(rangeInput)
@@ -103,7 +103,7 @@ func (c *CodeInstance) RemoveRanges(t *style.Theme) (reqs []*docs.Request) {
 	c.Code = sanitized.String()
 
 	// update zero-based utf8 -> offset utf16 index mapping
-	utf16Index := c.StartIndex
+	utf16Index := *c.StartIndex
 	c.toUTF16 = make(map[int]int64)
 	var r rune
 	for i, utf8Width := 0, 0; i < len(c.Code); i += utf8Width {

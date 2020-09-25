@@ -6,12 +6,21 @@ import (
 	"google.golang.org/api/docs/v1"
 )
 
+const (
+	startIndex = "StartIndex"
+	endIndex   = "EndIndex"
+)
+
 // GetRange gets a new *docs.Range for
 // start and end indices.
-func GetRange(start, end int64) *docs.Range {
+func GetRange(start, end int64, segmentID string) *docs.Range {
 	return &docs.Range{
 		StartIndex: start,
 		EndIndex:   end,
+		SegmentId:  segmentID,
+		// force send since a value of 0 in a header/footer
+		// will be omitted in the JSON, causing a bad request
+		ForceSendFields: []string{startIndex, endIndex},
 	}
 }
 
