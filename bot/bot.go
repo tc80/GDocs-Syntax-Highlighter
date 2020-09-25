@@ -4,13 +4,11 @@ import (
 	"GDocs-Syntax-Highlighter/auth"
 	"GDocs-Syntax-Highlighter/parser"
 	"GDocs-Syntax-Highlighter/request"
-	"GDocs-Syntax-Highlighter/style"
 	"context"
 	"flag"
 	"fmt"
 	"log"
 	"os"
-	"regexp"
 	"time"
 
 	"google.golang.org/api/docs/v1"
@@ -82,14 +80,13 @@ func start(docID string, docsService *docs.Service) {
 			// remove ranges from instance.Code and add the requests to highlight them
 			reqs = append(reqs, instance.RemoveRanges(t)...)
 
-			regex := regexp.MustCompile("\\bint\\b")
-			reqs = append(reqs, instance.Highlight(regex, style.DarkThemeBlue)...)
-
-			// all shortcuts/formatting done, so now we just need to highlight
-			// cannot be within comment
-			// remove ranges, then do regex on remaining text, map index -> utf16 index
+			// highlight keywords using regexes
+			for _, k := range t.Keywords {
+				reqs = append(reqs, instance.Highlight(k.Regex, k.Color)...)
+			}
 		}
 
+		// update Google Document
 		if len(reqs) > 0 {
 			update := request.BatchUpdate(reqs)
 			_, err := docsService.Documents.BatchUpdate(docID, update).Do()
@@ -101,6 +98,7 @@ func start(docID string, docsService *docs.Service) {
 		log.Println("Sleeping...")
 		time.Sleep(sleepTime)
 
+		// TODO:
 		// replace illegal character U+201C
 		// replace illegal character U+201D
 

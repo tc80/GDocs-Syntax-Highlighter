@@ -122,8 +122,8 @@ func (c *CodeInstance) checkForHeader(s string, par *docs.ParagraphElement) {
 	// check for language
 	if c.Lang == nil {
 		if res := configLangRegex.FindStringSubmatch(s); len(res) == 2 {
-			if lang, ok := style.GetLanguage(res[1]); ok {
-				c.Lang = lang
+			if l, ok := style.GetLanguage(res[1]); ok {
+				c.Lang = l
 			} else {
 				// TODO: maybe add a comment to the Google Doc
 				// in the future to notify of an invalid language name
