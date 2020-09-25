@@ -25,15 +25,16 @@ var (
 // Format describes whether we will format the code (if the directive is bolded)
 // as well as the UTF16 indices of the directive (to unbold itself).
 type Format struct {
-	Bold       bool  // if bolded, format the code and then unbold the directive
-	StartIndex int64 // start index of directive
-	EndIndex   int64 // end index of directive
+	Bold       bool   // if bolded, format the code and then unbold the directive
+	SegmentID  string // segment ID
+	StartIndex int64  // start index of directive
+	EndIndex   int64  // end index of directive
 }
 
 // GetRange gets the *docs.Range
 // for a particular Format.
 func (f *Format) GetRange() *docs.Range {
-	return request.GetRange(f.StartIndex, f.EndIndex)
+	return request.GetRange(f.StartIndex, f.EndIndex, f.SegmentID)
 }
 
 // FormatFunc describes a function that takes in a program

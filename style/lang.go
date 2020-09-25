@@ -31,10 +31,9 @@ var (
 				Keywords: []Keyword{
 					{go1, DarkThemePink},
 					{go2, DarkThemeDarkBlue},
-					{go3, DarkThemeDarkBlue},
-					{go4, DarkThemeGreenCyan},
-					{go5, DarkThemeYellow},
-					{go6, DarkThemePaleGreen},
+					{go3, DarkThemeGreenCyan},
+					{go4, DarkThemeYellow},
+					{go5, DarkThemePaleGreen},
 				},
 			},
 		},
