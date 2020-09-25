@@ -82,7 +82,7 @@ func expectRange(r *style.Range) parser {
 	}
 }
 
-// Represents a search
+// Represents the result of a search.
 type search struct {
 	consumed string      // string of consumed runes while searching
 	result   interface{} // if the parser parsed something, the result would be here
