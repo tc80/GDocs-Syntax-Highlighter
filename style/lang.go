@@ -23,9 +23,9 @@ type Theme struct {
 	Keywords   map[string]*docs.Color
 }
 
-// Range represents an area of text that
-// will receive the same color.
+// Range represents an area of text that will receive the same color.
 // For instance, a comment.
+// For now, there is no notion of precedence.
 type Range struct {
 	StartSymbol string
 	EndSymbol   string
@@ -44,7 +44,6 @@ var (
 				Ranges: []*Range{
 					&Range{"//", "\n", DarkThemePaleGreen},
 					&Range{"/*", "*/", DarkThemePaleGreen},
-					&Range{"'", "'", DarkThemeLightRedOrange},
 					&Range{"\"", "\"", DarkThemeLightRedOrange},
 					&Range{"`", "`", DarkThemeLightRedOrange},
 				},
@@ -85,6 +84,7 @@ var (
 					"complex128":  DarkThemeGreenCyan,
 					"float32":     DarkThemeGreenCyan,
 					"float64":     DarkThemeGreenCyan,
+					"int":         DarkThemeGreenCyan,
 					"int8":        DarkThemeGreenCyan,
 					"int16":       DarkThemeGreenCyan,
 					"int32":       DarkThemeGreenCyan,
@@ -111,6 +111,7 @@ var (
 					"println":     DarkThemeYellow,
 					"real":        DarkThemeYellow,
 					"recover":     DarkThemeYellow,
+					//"'":           DarkThemeLightRedOrange,
 				},
 			},
 		},

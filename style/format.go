@@ -1,16 +1,25 @@
 package style
 
 import (
+	"GDocs-Syntax-Highlighter/request"
 	"bytes"
 	"fmt"
 	"log"
 	"os"
 	"os/exec"
 	"path"
+
+	"google.golang.org/api/docs/v1"
 )
 
 var (
 	goImportsPath = getGoImportsPath() // path to `goimports`
+
+	// FormatDirective is an optional directive to specify if the code should be formatted.
+	// Note that formatting is not highlighting.
+	// If not present, the code will never be formatted.
+	// If present, the code is formatted every time the user bolds this config directive.
+	FormatDirective = "#format"
 )
 
 // Format describes whether we will format the code (if the directive is bolded)
@@ -19,6 +28,12 @@ type Format struct {
 	Bold       bool  // if bolded, format the code and then unbold the directive
 	StartIndex int64 // start index of directive
 	EndIndex   int64 // end index of directive
+}
+
+// GetRange gets the *docs.Range
+// for a particular Format.
+func (f *Format) GetRange() *docs.Range {
+	return request.GetRange(f.StartIndex, f.EndIndex)
 }
 
 // FormatFunc describes a function that takes in a program
