@@ -18,7 +18,7 @@ var (
 		Format:    FormatGo,
 		Shortcuts: map[string]string{},
 		Themes: map[string]*Theme{
-			DarkTheme: {
+			darkTheme: {
 				DocBackground:    DarkThemeBackground,
 				CodeForeground:   DarkThemeForeground,
 				CodeBackground:   DarkThemeBackground,
@@ -40,6 +40,30 @@ var (
 					{go3, DarkThemeGreenCyan},
 					{go4, DarkThemeYellow},
 					{go5, DarkThemePaleGreen},
+				},
+			},
+			lightTheme: {
+				DocBackground:    White,
+				CodeForeground:   Black,
+				CodeBackground:   White,
+				ConfigForeground: DarkThemeBackground,
+				ConfigBackground: DarkThemeForeground,
+				ConfigFont:       courierNew,
+				ConfigFontSize:   11,
+				ConfigItalics:    true,
+				Ranges: []*Range{
+					{"//", "\n", LightThemeDarkGreen},
+					{"/*", "*/", LightThemeDarkGreen},
+					{"\"", "\"", LightThemeDarkRed},
+					{"'", "'", LightThemeDarkRed},
+					{"`", "`", LightThemeDarkRed},
+				},
+				Keywords: []Keyword{
+					{go1, LightThemePink},
+					{go2, Blue},
+					{go3, LightThemeGreenCyan},
+					{go4, LightThemeStrawYellow},
+					{go5, LightThemePaleGreen},
 				},
 			},
 		},

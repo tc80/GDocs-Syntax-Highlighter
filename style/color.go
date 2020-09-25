@@ -8,6 +8,9 @@ import (
 )
 
 var (
+	// Note that some of the following hex codes are taken from the VSCode themes found here:
+	// https://github.com/microsoft/vscode/tree/master/extensions/theme-defaults/themes
+
 	// Transparent color.
 	Transparent *docs.Color
 
@@ -17,8 +20,26 @@ var (
 	// Black color.
 	Black = getColorFromHex("000000")
 
-	// Note that some of the following hex codes are taken from the VSCode themes found here:
-	// https://github.com/microsoft/vscode/tree/master/extensions/theme-defaults/themes
+	// Blue color.
+	Blue = getColorFromHex("0000FF")
+
+	// LightThemePink is VSCode's light theme pink color.
+	LightThemePink = getColorFromHex("AF00DB")
+
+	// LightThemeGreenCyan is VSCode's light theme green-cyan color.
+	LightThemeGreenCyan = getColorFromHex("267F99")
+
+	// LightThemeStrawYellow is VSCode's light theme straw-yellow color.
+	LightThemeStrawYellow = getColorFromHex("795E26")
+
+	// LightThemePaleGreen is VSCode's light theme pale-green color.
+	LightThemePaleGreen = getColorFromHex("098658")
+
+	// LightThemeDarkGreen is VSCode's light theme dark-green color.
+	LightThemeDarkGreen = getColorFromHex("008000")
+
+	// LightThemeDarkRed is VSCode's light theme dark red color.
+	LightThemeDarkRed = getColorFromHex("A31515")
 
 	// DarkThemeBackground is VSCode's dark theme background color (dark gray).
 	DarkThemeBackground = getColorFromHex("1E1E1E")
@@ -53,10 +74,10 @@ var (
 	// DarkThemeLightRedOrange is VSCode's dark theme dark light red-orange color.
 	DarkThemeLightRedOrange = getColorFromHex("CE9178")
 
-	// DarkThemeLightRed is VSCode's dark theme dark theme light red color.
+	// DarkThemeLightRed is VSCode's dark theme light red color.
 	DarkThemeLightRed = getColorFromHex("D16969")
 
-	// DarkThemeStrawYellow is VSCode's dark theme dark theme straw-yellow color.
+	// DarkThemeStrawYellow is VSCode's dark theme straw-yellow color.
 	DarkThemeStrawYellow = getColorFromHex("D7BA7D")
 )
 

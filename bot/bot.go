@@ -115,6 +115,8 @@ func start(docID string, update time.Duration, verbose bool, docsService *docs.S
 }
 
 func main() {
+	log.Printf("Running...")
+
 	var docID string
 	var update int
 	var verbose bool

@@ -8,11 +8,14 @@ import (
 )
 
 const (
-	// DarkTheme is the dark theme.
-	DarkTheme = "dark"
+	// The dark theme.
+	darkTheme = "dark"
+
+	// The light theme.
+	lightTheme = "light"
 
 	// DefaultTheme is the default theme.
-	DefaultTheme = DarkTheme
+	DefaultTheme = darkTheme
 )
 
 var (
@@ -21,7 +24,8 @@ var (
 	ThemeRegex = regexp.MustCompile("^#theme=([\\w_]+)$")
 
 	themes = map[string]bool{
-		DarkTheme: true,
+		darkTheme:  true,
+		lightTheme: true,
 	}
 )
 
