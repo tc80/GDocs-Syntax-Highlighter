@@ -40,7 +40,6 @@ func start(docID string, update time.Duration, verbose bool, docsService *docs.S
 			// unbold the #format directive to notify user that
 			// the code was formatted or attempted to be formatted
 			reqs = append(reqs, request.SetBold(false, instance.Format.GetRange()))
-			fmt.Println(instance.Format.GetRange())
 
 			if instance.Lang.Format == nil {
 				panic(fmt.Sprintf("no format func defined for language: `%s`", instance.Lang.Name))
