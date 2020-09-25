@@ -82,8 +82,7 @@ func start(docID string, docsService *docs.Service) {
 			// remove ranges from instance.Code and add the requests to highlight them
 			reqs = append(reqs, instance.RemoveRanges(t)...)
 
-			fmt.Println(len(instance.Code))
-			regex := regexp.MustCompile("\\bmap\\b")
+			regex := regexp.MustCompile("\\bint\\b")
 			reqs = append(reqs, instance.Highlight(regex, style.DarkThemeBlue)...)
 
 			// all shortcuts/formatting done, so now we just need to highlight
@@ -101,52 +100,11 @@ func start(docID string, docsService *docs.Service) {
 
 		log.Println("Sleeping...")
 		time.Sleep(sleepTime)
-		os.Exit(1)
-		// os.Exit(1)
 
 		// replace illegal character U+201C
 		// replace illegal character U+201D
 
-		// java, _ := style.GetLanguage("java")
-		// chars, comms := parser.SeparateComments(java, chars)
-
-		// if len(chars) == 0 {
-		// 	continue
-		// }
-
-		// // underline if something is incorrect or spelled wrong ??/
-		// // if something is wrong, highlight in red and for the error
-		// // put in an actual gdocs comment
-		// // when resolved, resolve the comment
-
-		// var reqs []*docs.Request
-		// startIndex, endIndex := parser.GetRange(chars)
-		// reqs = append(reqs, requests.GetDocumentColorRequest(style.Black))
-		// reqs = append(reqs, requests.GetBackColorRequest(style.Transparent, startIndex, endIndex))
-		// reqs = append(reqs, requests.GetForeColorRequest(style.White, startIndex, endIndex))
-		// reqs = append(reqs, requests.GetFontRequest(style.CourierNew, startIndex, endIndex))
-
-		// for _, c := range comms {
-		// 	fmt.Println(c)
-		// 	reqs = append(reqs, requests.GetForeColorRequest(style.Green, c.Index, c.Index+c.Size))
-		// }
-
-		// words := parser.GetWords(chars)
-		// for i, w := range words {
-		// 	lower := strings.ToLower(w.Content)
-		// 	if c, ok := java.Keywords[lower]; ok {
-		// 		if w.Content != lower {
-		// 			// make lower, probs should not iterate through words
-		// 			// should split replace req into two methods maybe?
-		// 			reqs = append(reqs, requests.GetReplaceRequest(w, words[i+1:], lower)...)
-		// 		}
-		// 		reqs = append(reqs, requests.GetForeColorRequest(c, w.Index, w.Index+w.Size))
-		// 		continue
-		// 	}
-		// 	if replace, ok := java.Shortcuts[lower]; ok {
-		// 		reqs = append(reqs, requests.GetReplaceRequest(w, words[i+1:], replace)...)
-		// 	}
-		// }
+		os.Exit(1)
 	}
 }
 
