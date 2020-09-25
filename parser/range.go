@@ -56,6 +56,7 @@ func (c *CodeInstance) RemoveRanges(t *style.Theme) (reqs []*docs.Request) {
 	var removeRanges []removeRange      // ranges to be removed
 	utf16Offsets := make(map[int]int64) // add utf16 offset at certain utf8 indices in the sanitized string
 	var utf8Offset int                  // utf8 offset in sanitized string
+	var utf8MultiRangeStartIndex *int   // if multiple ranges in a row, utf8 start index in sanitized string of first range
 	in := rangeInput{runes: c.Code}
 	for r, size := in.current(); r != nil; r, size = in.current() {
 		out := selectAny(rangeParsers)(in)
@@ -68,7 +69,16 @@ func (c *CodeInstance) RemoveRanges(t *style.Theme) (reqs []*docs.Request) {
 			removeRanges = append(removeRanges, removeRange{utf8StartIndex, utf8Size})
 
 			// update offset map to recreate utf8 -> utf16 map in sanitized string
-			utf16Offsets[utf8StartIndex+utf8Offset] = utf16Size
+			if utf8MultiRangeStartIndex != nil {
+				// there is at least one range directly before this one
+				// so update the first range's utf8 -> utf16 index mapping in the sanitized string
+				utf16Offsets[*utf8MultiRangeStartIndex] = utf16Offsets[*utf8MultiRangeStartIndex] + utf16Size
+			} else {
+				// no range directly before this, so create new utf8 -> utf16 index mapping
+				utf8RangeStartIndex := utf8StartIndex + utf8Offset
+				utf16Offsets[utf8RangeStartIndex] = utf16Size
+				utf8MultiRangeStartIndex = &utf8RangeStartIndex
+			}
 			utf8Offset -= utf8Size
 
 			// create request to update range's color using utf16 indices
@@ -79,7 +89,9 @@ func (c *CodeInstance) RemoveRanges(t *style.Theme) (reqs []*docs.Request) {
 			in = out.remaining.(rangeInput)
 			continue
 		}
+		// failed to parse range, advance
 		in = in.advance(size).(rangeInput)
+		utf8MultiRangeStartIndex = nil
 	}
 
 	if len(removeRanges) == 0 {
