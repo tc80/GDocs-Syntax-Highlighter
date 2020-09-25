@@ -14,6 +14,9 @@ var (
 	// White color.
 	White = getColorFromHex("FFFFFF")
 
+	// Black color.
+	Black = getColorFromHex("000000")
+
 	// Note that some of the following hex codes are taken from the VSCode themes found here:
 	// https://github.com/microsoft/vscode/tree/master/extensions/theme-defaults/themes
 

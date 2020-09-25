@@ -17,19 +17,27 @@ var (
 	configLangRegex = regexp.MustCompile("^#lang=([\\w_]+)$")
 )
 
+// ConfigSegment represents a header/footer, which
+// if where config directives live.
+type ConfigSegment struct {
+	StartIndex int64
+	EndIndex   int64
+}
+
 // CodeInstance describes a section in the Google Doc
 // that has a config and code fragment.
 type CodeInstance struct {
-	toUTF16    map[int]int64   // maps the indices of the zero-based utf8 rune in Code to utf16 rune indices+start utf16 offset
-	Code       string          // the code as text
-	Theme      *string         // theme
-	Font       *string         // font
-	FontSize   *float64        // font size
-	Lang       *style.Language // the coding language
-	StartIndex *int64          // utf16 start index of code
-	EndIndex   *int64          // utf16 end index of code
-	Shortcuts  *bool           // whether shortcuts are enabled
-	Format     *style.Format   // whether we are being requested to format the code
+	toUTF16    map[int]int64             // maps the indices of the zero-based utf8 rune in Code to utf16 rune indices+start utf16 offset
+	Segments   map[string]*ConfigSegment // headers and footer IDs -> config segment
+	Code       string                    // the code as text
+	Theme      *string                   // theme
+	Font       *string                   // font
+	FontSize   *float64                  // font size
+	Lang       *style.Language           // the coding language
+	StartIndex *int64                    // utf16 start index of code
+	EndIndex   *int64                    // utf16 end index of code
+	Shortcuts  *bool                     // whether shortcuts are enabled
+	Format     *style.Format             // whether we are being requested to format the code
 }
 
 // GetRange gets the *docs.Range
@@ -157,6 +165,7 @@ func (c *CodeInstance) checkForConfig(s, segmentID string, par *docs.ParagraphEl
 // will be processed in a Google Doc.
 func GetCodeInstance(doc *docs.Document) *CodeInstance {
 	c := new(CodeInstance)
+	c.Segments = make(map[string]*ConfigSegment)
 
 	// check for config in Google Doc headers
 	for _, h := range doc.Headers {
@@ -164,6 +173,11 @@ func GetCodeInstance(doc *docs.Document) *CodeInstance {
 			if elem.Paragraph != nil {
 				for _, par := range elem.Paragraph.Elements {
 					if par.TextRun != nil {
+						if seg, ok := c.Segments[h.HeaderId]; ok {
+							seg.EndIndex = par.EndIndex
+						} else {
+							c.Segments[h.HeaderId] = &ConfigSegment{par.StartIndex, par.EndIndex}
+						}
 						for _, s := range strings.Fields(par.TextRun.Content) {
 							c.checkForConfig(s, h.HeaderId, par)
 						}
@@ -179,6 +193,11 @@ func GetCodeInstance(doc *docs.Document) *CodeInstance {
 			if elem.Paragraph != nil {
 				for _, par := range elem.Paragraph.Elements {
 					if par.TextRun != nil {
+						if seg, ok := c.Segments[f.FooterId]; ok {
+							seg.EndIndex = par.EndIndex
+						} else {
+							c.Segments[f.FooterId] = &ConfigSegment{par.StartIndex, par.EndIndex}
+						}
 						for _, s := range strings.Fields(par.TextRun.Content) {
 							c.checkForConfig(s, f.FooterId, par)
 						}

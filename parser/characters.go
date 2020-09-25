@@ -73,6 +73,9 @@ func GetUtf16StringSize(s string) int64 {
 // Also sets the EndIndex in case it changed during any formatting.
 func (c *CodeInstance) MapToUTF16() {
 	if c.Code == "" {
+		// Even with an empty Document it appears Google Docs
+		// still has the newline character `\n`, so this
+		// should never happen.
 		panic("code must not be empty")
 	}
 

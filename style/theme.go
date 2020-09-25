@@ -28,10 +28,16 @@ var (
 // Theme represents a language's keywords, comments
 // and associated colors for a particular theme.
 type Theme struct {
-	Foreground *docs.Color
-	Background *docs.Color
-	Ranges     []*Range
-	Keywords   []Keyword
+	DocBackground    *docs.Color
+	CodeForeground   *docs.Color
+	CodeBackground   *docs.Color
+	ConfigForeground *docs.Color
+	ConfigBackground *docs.Color
+	ConfigFont       string
+	ConfigFontSize   float64
+	ConfigItalics    bool
+	Ranges           []*Range
+	Keywords         []Keyword
 }
 
 // Range represents an area of text that will receive the same color.

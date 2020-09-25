@@ -19,8 +19,14 @@ var (
 		Shortcuts: map[string]string{},
 		Themes: map[string]*Theme{
 			DarkTheme: {
-				Foreground: DarkThemeForeground,
-				Background: DarkThemeBackground,
+				DocBackground:    DarkThemeBackground,
+				CodeForeground:   DarkThemeForeground,
+				CodeBackground:   DarkThemeBackground,
+				ConfigForeground: White,
+				ConfigBackground: Black,
+				ConfigFont:       courierNew,
+				ConfigFontSize:   11,
+				ConfigItalics:    true,
 				Ranges: []*Range{
 					{"//", "\n", DarkThemeDarkGreen},
 					{"/*", "*/", DarkThemeDarkGreen},

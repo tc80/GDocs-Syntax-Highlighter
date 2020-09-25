@@ -60,33 +60,46 @@ func start(docID string, update time.Duration, verbose bool, docsService *docs.S
 			}
 		}
 
-		// ignore empty code
-		if instance.Code != "" {
-			// map utf8 -> utf16, set end index
-			instance.MapToUTF16()
+		// map utf8 -> utf16, set end index
+		instance.MapToUTF16()
 
-			// set foreground, background, font, italics=false, doc background=white
-			r, t := instance.GetRange(), instance.GetTheme()
-			reqs = append(reqs, request.UpdateForegroundColor(t.Foreground, r))
-			reqs = append(reqs, request.UpdateDocBackground(t.Background))
-			reqs = append(reqs, request.UpdateFont(*instance.Font, *instance.FontSize, r))
-			reqs = append(reqs, request.SetItalics(false, r))
+		// set code foreground, code background, code font, code italics=false, doc background
+		r, t := instance.GetRange(), instance.GetTheme()
+		reqs = append(reqs, request.UpdateForegroundColor(t.CodeForeground, r))
+		reqs = append(reqs, request.UpdateBackgroundColor(t.CodeBackground, r))
+		reqs = append(reqs, request.UpdateDocBackground(t.DocBackground))
+		reqs = append(reqs, request.UpdateFont(*instance.Font, *instance.FontSize, r))
+		reqs = append(reqs, request.SetItalics(false, r))
 
-			// remove ranges from instance.Code and add the requests to highlight them
-			reqs = append(reqs, instance.RemoveRanges(t)...)
-
-			// highlight keywords using regexes
-			for _, k := range t.Keywords {
-				reqs = append(reqs, instance.Highlight(k.Regex, k.Color, "")...)
+		// set config foreground/background
+		for segmentID, seg := range instance.Segments {
+			segRange := request.GetRange(seg.StartIndex, seg.EndIndex, segmentID)
+			if seg.EndIndex == 1 {
+				// empty header/footer (just `\n`), so replace config background color
+				// with code's background to make the segment disappear
+				reqs = append(reqs, request.UpdateBackgroundColor(t.CodeBackground, segRange))
+				continue
 			}
+			reqs = append(reqs, request.UpdateForegroundColor(t.ConfigForeground, segRange))
+			reqs = append(reqs, request.UpdateBackgroundColor(t.ConfigBackground, segRange))
+			reqs = append(reqs, request.UpdateFont(t.ConfigFont, t.ConfigFontSize, segRange))
+			reqs = append(reqs, request.SetItalics(t.ConfigItalics, segRange))
+		}
 
-			// update Google Document
-			if len(reqs) > 0 {
-				update := request.BatchUpdate(reqs)
-				_, err := docsService.Documents.BatchUpdate(docID, update).Do()
-				if err != nil {
-					log.Printf("Failed to update Google Doc: %v\n", err)
-				}
+		// remove ranges from instance.Code and add the requests to highlight them
+		reqs = append(reqs, instance.RemoveRanges(t)...)
+
+		// highlight code keywords using regexes
+		for _, k := range t.Keywords {
+			reqs = append(reqs, instance.Highlight(k.Regex, k.Color, "")...)
+		}
+
+		// update Google Document
+		if len(reqs) > 0 {
+			update := request.BatchUpdate(reqs)
+			_, err := docsService.Documents.BatchUpdate(docID, update).Do()
+			if err != nil {
+				log.Printf("Failed to update Google Doc: %v\n", err)
 			}
 		}
 
