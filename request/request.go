@@ -12,6 +12,7 @@ const (
 	weightedFontFamily = "weightedFontFamily"
 	fontSize           = "fontSize"
 	boldField          = "bold"
+	italicField        = "italic"
 	pointUnit          = "PT"
 )
 
@@ -107,6 +108,19 @@ func SetBold(bold bool, r *docs.Range) *docs.Request {
 			Range:  r,
 			TextStyle: &docs.TextStyle{
 				Bold: bold,
+			},
+		},
+	}
+}
+
+// SetItalics sets a range to italic or not italic.
+func SetItalics(italic bool, r *docs.Range) *docs.Request {
+	return &docs.Request{
+		UpdateTextStyle: &docs.UpdateTextStyleRequest{
+			Fields: italicField,
+			Range:  r,
+			TextStyle: &docs.TextStyle{
+				Italic: italic,
 			},
 		},
 	}

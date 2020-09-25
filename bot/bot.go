@@ -4,11 +4,13 @@ import (
 	"GDocs-Syntax-Highlighter/auth"
 	"GDocs-Syntax-Highlighter/parser"
 	"GDocs-Syntax-Highlighter/request"
+	"GDocs-Syntax-Highlighter/style"
 	"context"
 	"flag"
 	"fmt"
 	"log"
 	"os"
+	"regexp"
 	"time"
 
 	"google.golang.org/api/docs/v1"
@@ -30,13 +32,18 @@ func start(docID string, docsService *docs.Service) {
 
 		// process each instance of code found in the Google Doc
 		for _, instance := range parser.GetCodeInstances(doc) {
+			if *instance.Shortcuts {
+				// note, need to update end index and make sure no shortcuts are in comments
+				log.Println("TODO - process shortcuts")
+			}
+
 			lang := instance.Lang
 
 			// attempt to format
 			if instance.Format.Bold {
 				// unbold the #format directive to notify user that
 				// the code was formatted or attempted to be formatted
-				reqs = append(reqs, request.SetBold(false, request.GetRange(instance.Format.StartIndex, instance.Format.EndIndex)))
+				reqs = append(reqs, request.SetBold(false, instance.Format.GetRange()))
 
 				if lang.Format == nil {
 					panic(fmt.Sprintf("no format func defined for language: `%s`", lang.Name))
@@ -57,11 +64,31 @@ func start(docID string, docsService *docs.Service) {
 				}
 			}
 
-			// r := instance.GetRange()
+			// ignore empty code
+			if instance.Code == "" {
+				continue
+			}
 
-			// reqs = append(reqs, request.UpdateForegroundColor(theme.Foreground, r))
-			// reqs = append(reqs, request.UpdateBackgroundColor(theme.Background, r)) -- add 1 to range
-			// reqs = append(reqs, request.UpdateFont(*instance.Font, *instance.FontSize, r))
+			// map utf8 -> utf16, set end index
+			instance.MapToUTF16()
+
+			// set foreground, background, font, italics=false
+			r, t := instance.GetRange(), instance.GetTheme()
+			reqs = append(reqs, request.UpdateForegroundColor(t.Foreground, r))
+			reqs = append(reqs, request.UpdateBackgroundColor(t.Background, r))
+			reqs = append(reqs, request.UpdateFont(*instance.Font, *instance.FontSize, r))
+			reqs = append(reqs, request.SetItalics(false, r))
+
+			// remove ranges from instance.Code and add the requests to highlight them
+			reqs = append(reqs, instance.RemoveRanges(t)...)
+
+			fmt.Println(len(instance.Code))
+			regex := regexp.MustCompile("\\bmap\\b")
+			reqs = append(reqs, instance.Highlight(regex, style.DarkThemeBlue)...)
+
+			// all shortcuts/formatting done, so now we just need to highlight
+			// cannot be within comment
+			// remove ranges, then do regex on remaining text, map index -> utf16 index
 		}
 
 		if len(reqs) > 0 {
@@ -74,42 +101,11 @@ func start(docID string, docsService *docs.Service) {
 
 		log.Println("Sleeping...")
 		time.Sleep(sleepTime)
-
-		// req := requests.GetForeColorRequest(style.Red, instances[0].Format.StartIndex, instances[0].Format.EndIndex)
-		// update := requests.GetBatchUpdate([]*docs.Request{req})
-
-		//os.Exit(1)
-
-		//res, err := style.FormatGo(text)
-		//fmt.Println(res)
-		//fmt.Println(err)
-
-		// if err == nil {
-		// 	req1 := requests.GetDeleteRequest(begin, end)
-		// 	req2 := requests.GetInsertRequest(res, begin)
-		// 	update := requests.GetBatchUpdate([]*docs.Request{req1, req2})
-		// 	response, err := docsService.Documents.BatchUpdate(docID, update).Do()
-		// 	_ = response
-		// 	if err != nil {
-		// 		fmt.Printf("\n\nERROR!!!!!: %v", err)
-		// 		log.Fatalf("%v", err)
-		// 	}
-		// }
+		os.Exit(1)
+		// os.Exit(1)
 
 		// replace illegal character U+201C
 		// replace illegal character U+201D
-
-		// fmt.Println(text, begin, end, ok)
-		// update := requests.GetBatchUpdate([]*docs.Request{requests.GetBackColorRequest(style.Red, begin, end)})
-		//chars := parser.GetChars(doc)
-		// response, err := docsService.Documents.BatchUpdate(docID, update).Do()
-		// _ = response
-
-		// if err != nil {
-		// 	fmt.Printf("\n\nERROR!!!!!: %v", err)
-		// 	log.Fatalf("%v", err)
-		// }
-		//os.Exit(1)
 
 		// java, _ := style.GetLanguage("java")
 		// chars, comms := parser.SeparateComments(java, chars)
