@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	// Note that some of the following hex codes are taken from the VSCode themes found here:
+	// Note that some of the following hex codes are taken/modified from the VSCode themes found here:
 	// https://github.com/microsoft/vscode/tree/master/extensions/theme-defaults/themes
 
 	// Transparent color.
@@ -22,6 +22,9 @@ var (
 
 	// Blue color.
 	Blue = getColorFromHex("0000FF")
+
+	// LightGray color.
+	LightGray = getColorFromHex("F3F3F3")
 
 	// LightThemePink is VSCode's light theme pink color.
 	LightThemePink = getColorFromHex("AF00DB")

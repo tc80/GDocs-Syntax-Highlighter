@@ -15,7 +15,7 @@ const (
 	lightTheme = "light"
 
 	// DefaultTheme is the default theme.
-	DefaultTheme = darkTheme
+	DefaultTheme = lightTheme
 )
 
 var (
