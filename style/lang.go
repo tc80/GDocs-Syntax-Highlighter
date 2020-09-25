@@ -34,6 +34,7 @@ var (
 					{go3, DarkThemeDarkBlue},
 					{go4, DarkThemeGreenCyan},
 					{go5, DarkThemeYellow},
+					{go6, DarkThemePaleGreen},
 				},
 			},
 		},

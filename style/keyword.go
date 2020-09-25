@@ -14,7 +14,7 @@ type Keyword struct {
 }
 
 var (
-	// Note that some of the following Go regexes are taken from the VSCode language files found here:
+	// Note that some of the following Go regexes are taken/inspired from the VSCode language files found here:
 	// https://github.com/microsoft/vscode/blob/master/extensions/go/syntaxes/go.tmLanguage.json
 	//
 	// TODO: update regexes to use capturing groups to replace positive lookaheads (since Go doesn't support it)
@@ -23,4 +23,5 @@ var (
 	go3 = regexp.MustCompile("\\b(package|type|import|var)\\s+")
 	go4 = regexp.MustCompile("\\b(bool|byte|error|(complex(64|128)|float(32|64)|u?int(8|16|32|64)?)|rune|string|uintptr)\\b")
 	go5 = regexp.MustCompile("\\b(append|cap|close|complex|copy|delete|imag|len|make|new|panic|print|println|real|recover)\\b")
+	go6 = regexp.MustCompile("\\b\\d+\\b")
 )
