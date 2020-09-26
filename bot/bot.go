@@ -12,10 +12,13 @@ import (
 	"time"
 
 	"google.golang.org/api/docs/v1"
+	"google.golang.org/api/drive/v3"
 	"google.golang.org/api/option"
 )
 
-func start(docID string, update time.Duration, verbose bool, docsService *docs.Service) {
+func start(docID string, update time.Duration, verbose bool, docsService *docs.Service, driveService *drive.Service) {
+	comments := drive.NewCommentsService(driveService)
+
 	for {
 		if verbose {
 			log.Println("Fetching Google Document...")
@@ -25,7 +28,7 @@ func start(docID string, update time.Duration, verbose bool, docsService *docs.S
 			log.Fatalf("Failed to get doc: %v", err)
 		}
 
-		var reqs []*docs.Request
+		var docsReqs []*docs.Request
 
 		// process each instance of code found in the Google Doc
 		instance := parser.GetCodeInstance(doc)
@@ -33,25 +36,24 @@ func start(docID string, update time.Duration, verbose bool, docsService *docs.S
 		if *instance.Shortcuts {
 			// preprocess by replacing regex matches with specific strings
 			for _, s := range instance.Lang.Shortcuts {
-				reqs = append(reqs, instance.Replace(s)...)
+				docsReqs = append(docsReqs, instance.Replace(s)...)
 			}
 		}
 
 		// attempt to format
 		if instance.Format.Bold {
-			// TODO: currently all directives are unbolded every time, so
-			// there is no need to explicitly unbold at the moment
-			//
 			// unbold the #format directive to notify user that
 			// the code was formatted or attempted to be formatted
-			// reqs = append(reqs, request.SetBold(false, instance.Format.GetRange()))
+			docsReqs = append(docsReqs, request.SetBold(false, instance.Format.GetRange()))
 
 			if instance.Lang.Format == nil {
 				panic(fmt.Sprintf("no format func defined for language: `%s`", instance.Lang.Name))
 			}
 			if formatted, err := instance.Lang.Format(instance.Code); err != nil {
-				// TODO: insert as Google Docs comment to notify of failure
 				log.Printf("Failed to format: %v\n", err)
+				if _, err = request.CreateComment(fmt.Sprintf("Format Failure:\n%v", err), docID, comments).Do(); err != nil {
+					log.Printf("Failed to create comment for format failure: %v\n", err)
+				}
 			} else {
 				// After formatting, note that the new end index will be inaccurate
 				// since the content length may have changed.
@@ -59,22 +61,42 @@ func start(docID string, update time.Duration, verbose bool, docsService *docs.S
 				instance.Code = formatted
 
 				// update for the new code string
-				reqs = append(reqs, instance.UpdateCode()...)
+				docsReqs = append(docsReqs, instance.UpdateCode()...)
 			}
 		}
 
 		// attempt to run program
+		// in the future it might be good to run this on a separate thread,
+		// but for now we will wait for it to complete
 		if instance.Run.Bold {
+			// unbold the #run directive to notify user that
+			// the code was formatted or attempted to be formatted
+			docsReqs = append(docsReqs, request.SetBold(false, instance.Run.GetRange()))
+
 			if instance.Lang.Run == nil {
 				panic(fmt.Sprintf("no run func defined for language: `%s`", instance.Lang.Name))
 			}
 			res, err := instance.Lang.Run(instance.Code)
 			if err != nil {
-				// TODO: insert as Google Docs comment to notify of failure
 				log.Printf("Failed to run: %v\n", err)
+				if _, err = request.CreateComment(fmt.Sprintf("Run Internal Failure:\n%v", err), docID, comments).Do(); err != nil {
+					log.Printf("Failed to create comment for run internal failure: %v\n", err)
+				}
 			} else {
-				// TODO: insert run result as Google Docs comment
-				fmt.Printf("RAN THE PROGRAM: %v\n", res)
+				log.Printf("Ran the program (status=%d).\n", res.Status)
+				if verbose {
+					log.Printf("Program errors: %s\n", res.Errors)
+					log.Printf("Program output: %s\n", res.Output)
+				}
+				if res.Errors == "" {
+					if _, err = request.CreateComment(fmt.Sprintf("Run Success (status=%d):\n%s", res.Status, res.Output), docID, comments).Do(); err != nil {
+						log.Printf("Failed to create comment for run success: %v\n", err)
+					}
+				} else {
+					if _, err = request.CreateComment(fmt.Sprintf("Run Failure (status=%d):\n%s", res.Status, res.Errors), docID, comments).Do(); err != nil {
+						log.Printf("Failed to create comment for run failure: %v\n", err)
+					}
+				}
 			}
 		}
 
@@ -83,39 +105,39 @@ func start(docID string, update time.Duration, verbose bool, docsService *docs.S
 
 		// set code foreground, code background, code font, code italics=false, doc background
 		r, t := instance.GetRange(), instance.GetTheme()
-		reqs = append(reqs, request.UpdateForegroundColor(t.CodeForeground, r))
-		reqs = append(reqs, request.UpdateBackgroundColor(t.CodeBackground, r))
-		reqs = append(reqs, request.UpdateHighlightColor(t.CodeHighlight, r))
-		reqs = append(reqs, request.UpdateDocBackground(t.DocBackground))
-		reqs = append(reqs, request.UpdateFont(*instance.Font, *instance.FontSize, r))
-		reqs = append(reqs, request.SetItalics(false, r))
+		docsReqs = append(docsReqs, request.UpdateForegroundColor(t.CodeForeground, r))
+		docsReqs = append(docsReqs, request.UpdateBackgroundColor(t.CodeBackground, r))
+		docsReqs = append(docsReqs, request.UpdateHighlightColor(t.CodeHighlight, r))
+		docsReqs = append(docsReqs, request.UpdateDocBackground(t.DocBackground))
+		docsReqs = append(docsReqs, request.UpdateFont(*instance.Font, *instance.FontSize, r))
+		docsReqs = append(docsReqs, request.SetItalics(false, r))
 
 		for segmentID, seg := range instance.Segments {
 			segRange := request.GetRange(seg.StartIndex, seg.EndIndex, segmentID)
 			if seg.EndIndex == 1 {
 				// empty header/footer (just `\n`), so replace config background color
 				// with code's background to make the segment disappear
-				reqs = append(reqs, request.UpdateBackgroundColor(t.CodeBackground, segRange))
+				docsReqs = append(docsReqs, request.UpdateBackgroundColor(t.CodeBackground, segRange))
 				continue
 			}
-			reqs = append(reqs, request.UpdateForegroundColor(t.ConfigForeground, segRange))
-			reqs = append(reqs, request.UpdateBackgroundColor(t.ConfigBackground, segRange))
-			reqs = append(reqs, request.UpdateHighlightColor(t.ConfigHighlight, segRange))
-			reqs = append(reqs, request.UpdateFont(t.ConfigFont, t.ConfigFontSize, segRange))
-			reqs = append(reqs, request.SetItalics(t.ConfigItalics, segRange))
+			docsReqs = append(docsReqs, request.UpdateForegroundColor(t.ConfigForeground, segRange))
+			docsReqs = append(docsReqs, request.UpdateBackgroundColor(t.ConfigBackground, segRange))
+			docsReqs = append(docsReqs, request.UpdateHighlightColor(t.ConfigHighlight, segRange))
+			//docsReqs = append(docsReqs, request.UpdateFont(t.ConfigFont, t.ConfigFontSize, segRange))
+			docsReqs = append(docsReqs, request.SetItalics(t.ConfigItalics, segRange))
 		}
 
 		// remove ranges from instance.Code and add the requests to highlight them
-		reqs = append(reqs, instance.RemoveRanges(t)...)
+		docsReqs = append(docsReqs, instance.RemoveRanges(t)...)
 
 		// highlight code keywords using regexes
 		for _, k := range t.Keywords {
-			reqs = append(reqs, instance.Highlight(k.Regex, k.Color, "")...)
+			docsReqs = append(docsReqs, instance.Highlight(k.Regex, k.Color, "")...)
 		}
 
 		// update Google Document
-		if len(reqs) > 0 {
-			update := request.BatchUpdate(reqs)
+		if len(docsReqs) > 0 {
+			update := request.BatchUpdate(docsReqs)
 			_, err := docsService.Documents.BatchUpdate(docID, update).Do()
 			if err != nil {
 				log.Printf("Failed to update Google Doc: %v\n", err)
@@ -162,6 +184,12 @@ func main() {
 		log.Fatalf("Failed to create Docs service: %v", err)
 	}
 
+	// create drive service
+	driveService, err := drive.NewService(context.Background(), option.WithHTTPClient(client))
+	if err != nil {
+		log.Fatalf("Failed to create Drive service: %v", err)
+	}
+
 	// start checking document
-	start(docID, time.Duration(update)*time.Millisecond, verbose, docsService)
+	start(docID, time.Duration(update)*time.Millisecond, verbose, docsService, driveService)
 }

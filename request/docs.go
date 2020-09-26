@@ -14,6 +14,8 @@ const (
 	boldField          = "bold"
 	italicField        = "italic"
 	pointUnit          = "PT"
+	startIndex         = "StartIndex"
+	endIndex           = "EndIndex"
 )
 
 // UpdateDocBackground gets a request to change the background color of the document.
@@ -142,5 +144,25 @@ func UpdateFont(font string, size float64, r *docs.Range) *docs.Request {
 				},
 			},
 		},
+	}
+}
+
+// GetRange gets a new *docs.Range for
+// start and end indices.
+func GetRange(start, end int64, segmentID string) *docs.Range {
+	return &docs.Range{
+		StartIndex: start,
+		EndIndex:   end,
+		SegmentId:  segmentID,
+		// force send since a value of 0 in a header/footer
+		// will be omitted in the JSON, causing a bad request
+		ForceSendFields: []string{startIndex, endIndex},
+	}
+}
+
+// BatchUpdate gets the batch request from a slice of requests.
+func BatchUpdate(requests []*docs.Request) *docs.BatchUpdateDocumentRequest {
+	return &docs.BatchUpdateDocumentRequest{
+		Requests: requests,
 	}
 }
