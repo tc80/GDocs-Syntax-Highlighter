@@ -15,12 +15,12 @@ var (
 	// formatDirective is an optional directive to specify if the code should be formatted.
 	// Note that formatting is not highlighting.
 	// If not present, the code will never be formatted.
-	// If present, the code is formatted every time the user bolds this config directive.
+	// If present, the code is formatted every time the user underlines this config directive.
 	formatDirective = "#format"
 
 	// runDirective is an optional directive to specify if the code should be run in a sandbox.
 	// If not present, the code will never be run.
-	// If present, the code is run every time the user bolds this config directive.
+	// If present, the code is run every time the user underlines this config directive.
 	runDirective = "#run"
 
 	// FontRegex is an optional directive to specify the font of the code.
@@ -45,29 +45,29 @@ var (
 	themeDirectiveRegex = regexp.MustCompile("^#theme=([\\w_]+)$")
 )
 
-// BoldedDirective describes a directive that is bolded
-// as well as the UTF16 indices of the directive (to unbold itself).
-type BoldedDirective struct {
-	Bold       bool   // if bolded, do something and then unbold the directive
+// UnderlinedDirective describes a directive that is underlined
+// as well as the UTF16 indices of the directive (to un-underline itself).
+type UnderlinedDirective struct {
+	Underlined bool   // if underlined, do something and then un-underline the directive
 	SegmentID  string // segment ID
 	StartIndex int64  // start index of directive
 	EndIndex   int64  // end index of directive
 }
 
 // GetRange gets the *docs.Range
-// for a particular BoldedDirective.
-func (b *BoldedDirective) GetRange() *docs.Range {
-	return request.GetRange(b.StartIndex, b.EndIndex, b.SegmentID)
+// for a particular UnderlinedDirective.
+func (u *UnderlinedDirective) GetRange() *docs.Range {
+	return request.GetRange(u.StartIndex, u.EndIndex, u.SegmentID)
 }
 
 // Checks for config directives in a particular
 // string that is located in a *docs.ParagraphElement.
 func (c *CodeInstance) checkForDirectives(s, segmentID string, par *docs.ParagraphElement) {
-	// check for format (must be bolded)
+	// check for format (must be underlined)
 	if c.Format == nil && strings.EqualFold(s, formatDirective) {
 		formatStart, formatEnd := getUTF16SubstrIndices(formatDirective, par.TextRun.Content, par.StartIndex)
-		c.Format = &BoldedDirective{
-			Bold:       par.TextRun.TextStyle.Bold,
+		c.Format = &UnderlinedDirective{
+			Underlined: par.TextRun.TextStyle.Underline,
 			StartIndex: formatStart,
 			EndIndex:   formatEnd,
 			SegmentID:  segmentID,
@@ -75,11 +75,11 @@ func (c *CodeInstance) checkForDirectives(s, segmentID string, par *docs.Paragra
 		return
 	}
 
-	// check for run (must be bolded)
+	// check for run (must be underlined)
 	if c.Run == nil && strings.EqualFold(s, runDirective) {
 		runStart, runEnd := getUTF16SubstrIndices(runDirective, par.TextRun.Content, par.StartIndex)
-		c.Run = &BoldedDirective{
-			Bold:       par.TextRun.TextStyle.Bold,
+		c.Run = &UnderlinedDirective{
+			Underlined: par.TextRun.TextStyle.Underline,
 			StartIndex: runStart,
 			EndIndex:   runEnd,
 			SegmentID:  segmentID,

@@ -13,6 +13,9 @@ const (
 	fontSize           = "fontSize"
 	boldField          = "bold"
 	italicField        = "italic"
+	underlineField     = "underline"
+	smallCapsField     = "smallCaps"
+	strikethroughField = "strikethrough"
 	pointUnit          = "PT"
 	startIndex         = "StartIndex"
 	endIndex           = "EndIndex"
@@ -128,20 +131,96 @@ func SetItalics(italic bool, r *docs.Range) *docs.Request {
 	}
 }
 
+// SetUnderline sets a range to underline or not.
+func SetUnderline(underline bool, r *docs.Range) *docs.Request {
+	return &docs.Request{
+		UpdateTextStyle: &docs.UpdateTextStyleRequest{
+			Fields: underlineField,
+			Range:  r,
+			TextStyle: &docs.TextStyle{
+				Underline: underline,
+			},
+		},
+	}
+}
+
+// SetSmallCaps sets a range to small caps or not.
+func SetSmallCaps(smallCaps bool, r *docs.Range) *docs.Request {
+	return &docs.Request{
+		UpdateTextStyle: &docs.UpdateTextStyleRequest{
+			Fields: smallCapsField,
+			Range:  r,
+			TextStyle: &docs.TextStyle{
+				SmallCaps: smallCaps,
+			},
+		},
+	}
+}
+
+// SetStrikethrough sets a range to strikethrough or not.
+func SetStrikethrough(strikethrough bool, r *docs.Range) *docs.Request {
+	return &docs.Request{
+		UpdateTextStyle: &docs.UpdateTextStyleRequest{
+			Fields: strikethroughField,
+			Range:  r,
+			TextStyle: &docs.TextStyle{
+				Strikethrough: strikethrough,
+			},
+		},
+	}
+}
+
+// ClearFormatting removes any italics, bold, smallcaps, strikethrough,
+// and underline.
+func ClearFormatting(r *docs.Range) *docs.Request {
+	return &docs.Request{
+		UpdateTextStyle: &docs.UpdateTextStyleRequest{
+			Fields:    getFields(italicField, boldField, smallCapsField, strikethroughField, underlineField),
+			Range:     r,
+			TextStyle: &docs.TextStyle{},
+		},
+	}
+}
+
 // UpdateFont gets the request to update a range with a particular font.
+// Note, this will unbold this range due to weightedFontFamily.
 func UpdateFont(font string, size float64, r *docs.Range) *docs.Request {
 	return &docs.Request{
 		UpdateTextStyle: &docs.UpdateTextStyleRequest{
 			Fields: getFields(weightedFontFamily, fontSize),
 			Range:  r,
 			TextStyle: &docs.TextStyle{
+				WeightedFontFamily: &docs.WeightedFontFamily{
+					FontFamily: font,
+				},
 				FontSize: &docs.Dimension{
 					Magnitude: size,
 					Unit:      pointUnit,
 				},
+			},
+		},
+	}
+}
+
+// UpdateTextStyleExceptUnderline updates a font and formatting options except for underline,
+// since underline is used in the directives.
+func UpdateTextStyleExceptUnderline(font string, size float64, italic, bold, smallCaps, strikethrough bool, r *docs.Range) *docs.Request {
+	return &docs.Request{
+		UpdateTextStyle: &docs.UpdateTextStyleRequest{
+			Fields: getFields(weightedFontFamily, fontSize, italicField, boldField, smallCapsField, strikethroughField),
+			Range:  r,
+			TextStyle: &docs.TextStyle{
 				WeightedFontFamily: &docs.WeightedFontFamily{
 					FontFamily: font,
 				},
+				FontSize: &docs.Dimension{
+					Magnitude: size,
+					Unit:      pointUnit,
+				},
+				Italic:        italic,
+				Bold:          bold,
+				SmallCaps:     smallCaps,
+				Strikethrough: strikethrough,
 			},
 		},
 	}

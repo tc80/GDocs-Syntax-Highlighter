@@ -41,10 +41,10 @@ func start(docID string, update time.Duration, verbose bool, docsService *docs.S
 		}
 
 		// attempt to format
-		if instance.Format.Bold {
-			// unbold the #format directive to notify user that
+		if instance.Format.Underlined {
+			// un-underline the #format directive to notify user that
 			// the code was formatted or attempted to be formatted
-			docsReqs = append(docsReqs, request.SetBold(false, instance.Format.GetRange()))
+			docsReqs = append(docsReqs, request.SetUnderline(false, instance.Format.GetRange()))
 
 			if instance.Lang.Format == nil {
 				panic(fmt.Sprintf("no format func defined for language: `%s`", instance.Lang.Name))
@@ -55,6 +55,8 @@ func start(docID string, update time.Duration, verbose bool, docsService *docs.S
 					log.Printf("Failed to create comment for format failure: %v\n", err)
 				}
 			} else {
+				log.Println("Formatted the program.")
+
 				// After formatting, note that the new end index will be inaccurate
 				// since the content length may have changed.
 				// The end index will be updated later when we do further parsing.
@@ -68,10 +70,10 @@ func start(docID string, update time.Duration, verbose bool, docsService *docs.S
 		// attempt to run program
 		// in the future it might be good to run this on a separate thread,
 		// but for now we will wait for it to complete
-		if instance.Run.Bold {
-			// unbold the #run directive to notify user that
+		if instance.Run.Underlined {
+			// un-underline the #run directive to notify user that
 			// the code was formatted or attempted to be formatted
-			docsReqs = append(docsReqs, request.SetBold(false, instance.Run.GetRange()))
+			docsReqs = append(docsReqs, request.SetUnderline(false, instance.Run.GetRange()))
 
 			if instance.Lang.Run == nil {
 				panic(fmt.Sprintf("no run func defined for language: `%s`", instance.Lang.Name))
@@ -110,7 +112,7 @@ func start(docID string, update time.Duration, verbose bool, docsService *docs.S
 		docsReqs = append(docsReqs, request.UpdateHighlightColor(t.CodeHighlight, r))
 		docsReqs = append(docsReqs, request.UpdateDocBackground(t.DocBackground))
 		docsReqs = append(docsReqs, request.UpdateFont(*instance.Font, *instance.FontSize, r))
-		docsReqs = append(docsReqs, request.SetItalics(false, r))
+		docsReqs = append(docsReqs, request.ClearFormatting(r))
 
 		for segmentID, seg := range instance.Segments {
 			segRange := request.GetRange(seg.StartIndex, seg.EndIndex, segmentID)
@@ -123,8 +125,9 @@ func start(docID string, update time.Duration, verbose bool, docsService *docs.S
 			docsReqs = append(docsReqs, request.UpdateForegroundColor(t.ConfigForeground, segRange))
 			docsReqs = append(docsReqs, request.UpdateBackgroundColor(t.ConfigBackground, segRange))
 			docsReqs = append(docsReqs, request.UpdateHighlightColor(t.ConfigHighlight, segRange))
-			//docsReqs = append(docsReqs, request.UpdateFont(t.ConfigFont, t.ConfigFontSize, segRange))
-			docsReqs = append(docsReqs, request.SetItalics(t.ConfigItalics, segRange))
+			docsReqs = append(docsReqs, request.UpdateTextStyleExceptUnderline(
+				t.ConfigFont, t.ConfigFontSize, t.ConfigItalics, t.ConfigBold, t.ConfigSmallCaps, t.ConfigStrikethrough, segRange,
+			))
 		}
 
 		// remove ranges from instance.Code and add the requests to highlight them

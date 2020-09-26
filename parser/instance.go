@@ -28,8 +28,8 @@ type CodeInstance struct {
 	StartIndex *int64                    // utf16 start index of code
 	EndIndex   *int64                    // utf16 end index of code
 	Shortcuts  *bool                     // whether shortcuts are enabled
-	Format     *BoldedDirective          // whether we are being requested to format the code
-	Run        *BoldedDirective          // whether we are being requested to run the code
+	Format     *UnderlinedDirective      // whether we are being requested to format the code
+	Run        *UnderlinedDirective      // whether we are being requested to run the code
 }
 
 // GetRange gets the *docs.Range
@@ -62,10 +62,10 @@ func (c *CodeInstance) setDefaults() {
 		c.Lang = style.GetDefaultLanguage()
 	}
 	if c.Format == nil {
-		c.Format = &BoldedDirective{}
+		c.Format = &UnderlinedDirective{}
 	}
 	if c.Run == nil {
-		c.Run = &BoldedDirective{}
+		c.Run = &UnderlinedDirective{}
 	}
 	if c.Font == nil {
 		defaultFont := style.DefaultFont
