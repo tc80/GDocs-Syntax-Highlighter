@@ -1,27 +1,33 @@
 package style
 
 import (
-	"regexp"
+	"GDocs-Syntax-Highlighter/runner"
 	"strings"
 )
+
+// FormatFunc describes a function that takes in a program
+// as text and returns the formatted program as text, as well as
+// an error if the code could not be formatted (most likely invalid code).
+type FormatFunc func(string) (string, error)
+
+// RunFunc describes a function that takes in a program
+// as text, runs it, and returns an output.
+type RunFunc func(string) (*runner.RunResult, error)
 
 // Language represents a programming language.
 type Language struct {
 	Name      string
 	Format    FormatFunc
+	Run       RunFunc
 	Shortcuts []*Shortcut
 	Themes    map[string]*Theme
 }
 
 var (
-	// LangRegex is the regex for the optional directive
-	// to specify the language of the code.
-	// If not set, #lang=go is assumed by default.
-	LangRegex = regexp.MustCompile("^#lang=([\\w_]+)$")
-
 	goLang = &Language{
 		Name:      "Go",
-		Format:    FormatGo,
+		Format:    runner.FormatGo,
+		Run:       runner.RunGo,
 		Shortcuts: []*Shortcut{doubleQuotes, singleQuotes, goMainShortcut},
 		Themes: map[string]*Theme{
 			darkTheme: {

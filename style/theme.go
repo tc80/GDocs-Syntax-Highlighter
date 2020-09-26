@@ -1,7 +1,6 @@
 package style
 
 import (
-	"regexp"
 	"strings"
 
 	"google.golang.org/api/docs/v1"
@@ -19,10 +18,6 @@ const (
 )
 
 var (
-	// ThemeRegex is an optional directive to specify the theme of the code.
-	// If not set, #theme=dark is assumed by default.
-	ThemeRegex = regexp.MustCompile("^#theme=([\\w_]+)$")
-
 	themes = map[string]bool{
 		darkTheme:  true,
 		lightTheme: true,

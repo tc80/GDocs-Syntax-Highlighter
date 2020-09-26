@@ -1,7 +1,6 @@
 package style
 
 import (
-	"regexp"
 	"strings"
 )
 
@@ -17,14 +16,6 @@ const (
 )
 
 var (
-	// FontRegex is an optional directive to specify the font of the code.
-	// If not set, #font=courier_new is assumed by default.
-	FontRegex = regexp.MustCompile("^#font=([\\w_]+)$")
-
-	// FontSizeRegex is an optional directive to specify the font size of the code.
-	// If not set, #size=11 is assumed by default.
-	FontSizeRegex = regexp.MustCompile("^#size=(\\d+(\\.\\d+)?)$")
-
 	fonts = map[string]string{
 		"courier_new": courierNew,
 		"consolas":    consolas,

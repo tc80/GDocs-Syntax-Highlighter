@@ -18,10 +18,6 @@ type Shortcut struct {
 }
 
 var (
-	// ShortcutsRegex is an optional directive to specify if shortcuts are enabled.
-	// By default, shortcuts are disabled.
-	ShortcutsRegex = regexp.MustCompile("^#shortcuts=(enabled|disabled)$")
-
 	doubleQuotes   = &Shortcut{regexp.MustCompile("“|”"), "\""}
 	singleQuotes   = &Shortcut{regexp.MustCompile("‘|’"), "'"}
 	goMainShortcut = &Shortcut{

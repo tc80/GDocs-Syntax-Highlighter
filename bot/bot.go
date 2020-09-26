@@ -63,6 +63,21 @@ func start(docID string, update time.Duration, verbose bool, docsService *docs.S
 			}
 		}
 
+		// attempt to run program
+		if instance.Run.Bold {
+			if instance.Lang.Run == nil {
+				panic(fmt.Sprintf("no run func defined for language: `%s`", instance.Lang.Name))
+			}
+			res, err := instance.Lang.Run(instance.Code)
+			if err != nil {
+				// TODO: insert as Google Docs comment to notify of failure
+				log.Printf("Failed to run: %v\n", err)
+			} else {
+				// TODO: insert run result as Google Docs comment
+				fmt.Printf("RAN THE PROGRAM: %v\n", res)
+			}
+		}
+
 		// map utf8 -> utf16, set end index
 		instance.MapToUTF16()
 

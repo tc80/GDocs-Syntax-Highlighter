@@ -1,14 +1,9 @@
 package parser
 
 import (
-	"GDocs-Syntax-Highlighter/request"
-	"GDocs-Syntax-Highlighter/style"
 	"fmt"
-	"regexp"
 	"strings"
 	"unicode/utf16"
-
-	"google.golang.org/api/docs/v1"
 )
 
 // Function to check if a particular
@@ -89,44 +84,4 @@ func (c *CodeInstance) MapToUTF16() {
 		utf16Index += utf16Width
 	}
 	c.EndIndex = &utf16Index
-}
-
-// Replace gets the requests to replace all matches of a regex with a particular string.
-// It also updates the instance.Code and EndIndex respectively.
-func (c *CodeInstance) Replace(s *style.Shortcut) (reqs []*docs.Request) {
-	for {
-		if res := s.Regex.FindStringSubmatchIndex(c.Code); res != nil {
-			utf8DelStart, utf8DelEnd := res[0], res[1]
-			utf16DelStart, utf16DelEnd := getUTF16SubstrIndices(c.Code[utf8DelStart:utf8DelEnd], c.Code, *c.StartIndex)
-
-			// delete target and insert replacement string
-			utf16DelRange := request.GetRange(utf16DelStart, utf16DelEnd, "")
-			reqs = append(reqs, request.Delete(utf16DelRange))
-			reqs = append(reqs, request.Insert(s.Replace, utf16DelStart))
-
-			// update end index for utf16 difference
-			utf16InsSize := GetUtf16StringSize(s.Replace)
-			newEndIndex := *c.EndIndex + utf16InsSize - (utf16DelEnd - utf16DelStart)
-			c.EndIndex = &newEndIndex
-
-			// replace c.Code
-			c.Code = c.Code[:utf8DelStart] + s.Replace + c.Code[utf8DelEnd:]
-			continue
-		}
-		return
-	}
-}
-
-// Highlight gets the requests to highlight all matches of a regex with a particular color.
-func (c *CodeInstance) Highlight(r *regexp.Regexp, color *docs.Color, segmentID string) (reqs []*docs.Request) {
-	if results := r.FindAllStringSubmatchIndex(c.Code, -1); results != nil {
-		for _, res := range results {
-			utf8Start, utf8End := res[0], res[1]
-			utf16Size := GetUtf16StringSize(c.Code[utf8Start:utf8End])
-			utf16StartOffset := c.toUTF16[utf8Start]
-			utf16Range := request.GetRange(utf16StartOffset, utf16StartOffset+utf16Size, segmentID)
-			reqs = append(reqs, request.UpdateForegroundColor(color, utf16Range))
-		}
-	}
-	return
 }
