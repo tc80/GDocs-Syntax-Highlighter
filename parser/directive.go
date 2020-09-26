@@ -102,8 +102,7 @@ func (c *CodeInstance) checkForDirectives(s, segmentID string, par *docs.Paragra
 			if l, ok := style.GetLanguage(res[1]); ok {
 				c.Lang = l
 			} else {
-				// TODO: maybe add a comment to the Google Doc
-				// in the future to notify of an invalid language name
+				// TODO: highlight invalid directive
 				log.Printf("Unknown language: `%s`\n", res[1])
 			}
 			return
@@ -116,8 +115,7 @@ func (c *CodeInstance) checkForDirectives(s, segmentID string, par *docs.Paragra
 			if font, ok := style.GetFont(res[1]); ok {
 				c.Font = &font
 			} else {
-				// TODO: maybe add a comment to the Google Doc
-				// in the future to notify of an invalid language name
+				// TODO: highlight invalid directive
 				log.Printf("Unknown font: `%s`\n", res[1])
 			}
 			return
@@ -129,6 +127,7 @@ func (c *CodeInstance) checkForDirectives(s, segmentID string, par *docs.Paragra
 		if res := fontSizeDirectiveRegex.FindStringSubmatch(s); len(res) == 3 {
 			float, err := strconv.ParseFloat(res[1], 64)
 			if err != nil {
+				// TODO: highlight invalid directive
 				log.Printf("Failed to parse font size `%s` into float64: %s\n", res[1], err)
 			} else {
 				c.FontSize = &float // if it is 0, will default to 1
@@ -143,13 +142,13 @@ func (c *CodeInstance) checkForDirectives(s, segmentID string, par *docs.Paragra
 			if theme, ok := style.GetTheme(res[1]); ok {
 				c.Theme = &theme
 			} else {
-				// TODO: maybe add a comment to the Google Doc
-				// in the future to notify of an invalid language name
+				// TODO: highlight invalid directive
 				log.Printf("Unknown theme: `%s`\n", res[1])
 			}
 			return
 		}
 	}
 
+	// TODO: highlight invalid directive
 	log.Printf("Unexpected config token: `%s`\n", s)
 }
