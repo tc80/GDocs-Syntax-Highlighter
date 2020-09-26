@@ -35,8 +35,10 @@ type Theme struct {
 	DocBackground    *docs.Color
 	CodeForeground   *docs.Color
 	CodeBackground   *docs.Color
+	CodeHighlight    *docs.Color
 	ConfigForeground *docs.Color
 	ConfigBackground *docs.Color
+	ConfigHighlight  *docs.Color
 	ConfigFont       string
 	ConfigFontSize   float64
 	ConfigItalics    bool

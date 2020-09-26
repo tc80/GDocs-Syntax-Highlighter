@@ -8,7 +8,7 @@ import (
 type Language struct {
 	Name      string
 	Format    FormatFunc
-	Shortcuts map[string]string
+	Shortcuts []*Shortcut
 	Themes    map[string]*Theme
 }
 
@@ -16,14 +16,16 @@ var (
 	goLang = &Language{
 		Name:      "Go",
 		Format:    FormatGo,
-		Shortcuts: map[string]string{},
+		Shortcuts: []*Shortcut{doubleQuotes, singleQuotes, goMainShortcut},
 		Themes: map[string]*Theme{
 			darkTheme: {
 				DocBackground:    DarkThemeBackground,
 				CodeForeground:   DarkThemeForeground,
 				CodeBackground:   DarkThemeBackground,
+				CodeHighlight:    Transparent,
 				ConfigForeground: White,
 				ConfigBackground: Black,
+				ConfigHighlight:  Transparent,
 				ConfigFont:       courierNew,
 				ConfigFontSize:   11,
 				ConfigItalics:    true,
@@ -46,8 +48,10 @@ var (
 				DocBackground:    White,
 				CodeForeground:   Black,
 				CodeBackground:   White,
+				CodeHighlight:    Transparent,
 				ConfigForeground: Black,
 				ConfigBackground: LightGray,
+				ConfigHighlight:  Transparent,
 				ConfigFont:       courierNew,
 				ConfigFontSize:   11,
 				ConfigItalics:    true,

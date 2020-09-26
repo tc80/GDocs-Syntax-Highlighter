@@ -30,9 +30,11 @@ func start(docID string, update time.Duration, verbose bool, docsService *docs.S
 		// process each instance of code found in the Google Doc
 		instance := parser.GetCodeInstance(doc)
 
-		if *instance.Shortcuts {
-			// note, need to update end index and make sure no shortcuts are in comments
-			log.Println("TODO - process shortcuts")
+		if true {
+			// preprocess by replacing regex matches with specific strings
+			for _, s := range instance.Lang.Shortcuts {
+				reqs = append(reqs, instance.Replace(s)...)
+			}
 		}
 
 		// attempt to format
@@ -48,14 +50,13 @@ func start(docID string, update time.Duration, verbose bool, docsService *docs.S
 				// TODO: insert as Google Docs comment to notify of failure
 				log.Printf("Failed to format: %v\n", err)
 			} else {
-				// delete the old text and insert the new text
-				reqs = append(reqs, request.Delete(request.GetRange(*instance.StartIndex, *instance.EndIndex-1, "")))
-				reqs = append(reqs, request.Insert(formatted, *instance.StartIndex))
-
 				// After formatting, note that the new end index will be inaccurate
 				// since the content length may have changed.
 				// The end index will be updated later when we do further parsing.
 				instance.Code = formatted
+
+				// update for the new code string
+				reqs = append(reqs, instance.UpdateCode()...)
 			}
 		}
 
@@ -66,11 +67,11 @@ func start(docID string, update time.Duration, verbose bool, docsService *docs.S
 		r, t := instance.GetRange(), instance.GetTheme()
 		reqs = append(reqs, request.UpdateForegroundColor(t.CodeForeground, r))
 		reqs = append(reqs, request.UpdateBackgroundColor(t.CodeBackground, r))
+		reqs = append(reqs, request.UpdateHighlightColor(t.CodeHighlight, r))
 		reqs = append(reqs, request.UpdateDocBackground(t.DocBackground))
 		reqs = append(reqs, request.UpdateFont(*instance.Font, *instance.FontSize, r))
 		reqs = append(reqs, request.SetItalics(false, r))
 
-		// set config foreground/background
 		for segmentID, seg := range instance.Segments {
 			segRange := request.GetRange(seg.StartIndex, seg.EndIndex, segmentID)
 			if seg.EndIndex == 1 {
@@ -81,6 +82,7 @@ func start(docID string, update time.Duration, verbose bool, docsService *docs.S
 			}
 			reqs = append(reqs, request.UpdateForegroundColor(t.ConfigForeground, segRange))
 			reqs = append(reqs, request.UpdateBackgroundColor(t.ConfigBackground, segRange))
+			reqs = append(reqs, request.UpdateHighlightColor(t.ConfigHighlight, segRange))
 			reqs = append(reqs, request.UpdateFont(t.ConfigFont, t.ConfigFontSize, segRange))
 			reqs = append(reqs, request.SetItalics(t.ConfigItalics, segRange))
 		}

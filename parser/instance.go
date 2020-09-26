@@ -52,6 +52,17 @@ func (c *CodeInstance) GetTheme() *style.Theme {
 	return c.Lang.Themes[*c.Theme]
 }
 
+// UpdateCode gets the []*docs.Request to delete the existing
+// code range and replace it with a new string Code.
+// It does not update the indices.
+func (c *CodeInstance) UpdateCode() []*docs.Request {
+	return []*docs.Request{
+		// need to ignore the newline character at the end of the segment so we use EndIndex-1
+		request.Delete(request.GetRange(*c.StartIndex, *c.EndIndex-1, "")),
+		request.Insert(c.Code, *c.StartIndex),
+	}
+}
+
 // Sets default values if unset.
 // Does not set start/end indices.
 func (c *CodeInstance) setDefaults() {
@@ -163,6 +174,7 @@ func (c *CodeInstance) checkForConfig(s, segmentID string, par *docs.ParagraphEl
 
 // GetCodeInstance gets the config and instances of code and that
 // will be processed in a Google Doc.
+// Note that directives split into multiple text runs are ignored.
 func GetCodeInstance(doc *docs.Document) *CodeInstance {
 	c := new(CodeInstance)
 	c.Segments = make(map[string]*ConfigSegment)

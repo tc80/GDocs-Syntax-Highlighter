@@ -2,6 +2,7 @@ package parser
 
 import (
 	"GDocs-Syntax-Highlighter/request"
+	"GDocs-Syntax-Highlighter/style"
 	"fmt"
 	"regexp"
 	"strings"
@@ -90,7 +91,36 @@ func (c *CodeInstance) MapToUTF16() {
 	c.EndIndex = &utf16Index
 }
 
-// Highlight gets the requests to highlight all matches of a regular expression with a particular color.
+// Replace gets the requests to replace all matches of a regex with a particular string.
+// It also updates the instance.Code and EndIndex respectively.
+func (c *CodeInstance) Replace(s *style.Shortcut) (reqs []*docs.Request) {
+	for {
+		if res := s.Regex.FindStringSubmatchIndex(c.Code); res != nil {
+			// update utf8 -> utf16 mapping
+			c.MapToUTF16()
+			utf8Start, utf8End := res[0], res[1]
+			utf16DeleteSize := GetUtf16StringSize(c.Code[utf8Start:utf8End])
+			utf16StartOffset := c.toUTF16[utf8Start]
+
+			// delete target and insert replacement string
+			utf16Range := request.GetRange(utf16StartOffset, utf16StartOffset+utf16DeleteSize, "")
+			reqs = append(reqs, request.Delete(utf16Range))
+			reqs = append(reqs, request.Insert(s.Replace, utf16StartOffset))
+
+			// update end index for utf16 difference
+			utf16InsertSize := GetUtf16StringSize(s.Replace)
+			newEndIndex := *c.EndIndex + utf16InsertSize - utf16DeleteSize
+			c.EndIndex = &newEndIndex
+
+			// replace c.Code
+			c.Code = c.Code[:utf8Start] + s.Replace + c.Code[utf8End:]
+			continue
+		}
+		return
+	}
+}
+
+// Highlight gets the requests to highlight all matches of a regex with a particular color.
 func (c *CodeInstance) Highlight(r *regexp.Regexp, color *docs.Color, segmentID string) (reqs []*docs.Request) {
 	if results := r.FindAllStringSubmatchIndex(c.Code, -1); results != nil {
 		for _, res := range results {
