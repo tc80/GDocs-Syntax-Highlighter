@@ -7,11 +7,7 @@ import (
 const (
 	// DefaultShortcutSetting is whether shortcuts are enabled by
 	// default.
-	DefaultShortcutSetting = false
-
-	// ShortcutsDirective is an optional directive to specify if shortcuts are enabled.
-	// By default, shortcuts are disabled.
-	ShortcutsDirective = "#shortcuts"
+	DefaultShortcutSetting = true
 )
 
 // Shortcut represents a shortcut.
@@ -22,6 +18,10 @@ type Shortcut struct {
 }
 
 var (
+	// ShortcutsRegex is an optional directive to specify if shortcuts are enabled.
+	// By default, shortcuts are disabled.
+	ShortcutsRegex = regexp.MustCompile("^#shortcuts=(enabled|disabled)$")
+
 	doubleQuotes   = &Shortcut{regexp.MustCompile("“|”"), "\""}
 	singleQuotes   = &Shortcut{regexp.MustCompile("‘|’"), "'"}
 	goMainShortcut = &Shortcut{

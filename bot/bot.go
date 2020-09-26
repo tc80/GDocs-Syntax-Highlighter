@@ -30,7 +30,7 @@ func start(docID string, update time.Duration, verbose bool, docsService *docs.S
 		// process each instance of code found in the Google Doc
 		instance := parser.GetCodeInstance(doc)
 
-		if true {
+		if *instance.Shortcuts {
 			// preprocess by replacing regex matches with specific strings
 			for _, s := range instance.Lang.Shortcuts {
 				reqs = append(reqs, instance.Replace(s)...)
@@ -39,9 +39,12 @@ func start(docID string, update time.Duration, verbose bool, docsService *docs.S
 
 		// attempt to format
 		if instance.Format.Bold {
+			// TODO: currently all directives are unbolded every time, so
+			// there is no need to explicitly unbold at the moment
+			//
 			// unbold the #format directive to notify user that
 			// the code was formatted or attempted to be formatted
-			reqs = append(reqs, request.SetBold(false, instance.Format.GetRange()))
+			// reqs = append(reqs, request.SetBold(false, instance.Format.GetRange()))
 
 			if instance.Lang.Format == nil {
 				panic(fmt.Sprintf("no format func defined for language: `%s`", instance.Lang.Name))
@@ -108,10 +111,6 @@ func start(docID string, update time.Duration, verbose bool, docsService *docs.S
 			log.Println("Sleeping...")
 		}
 		time.Sleep(update)
-
-		// TODO:
-		// replace illegal character U+201C
-		// replace illegal character U+201D
 	}
 }
 

@@ -4,17 +4,10 @@ import (
 	"GDocs-Syntax-Highlighter/request"
 	"GDocs-Syntax-Highlighter/style"
 	"log"
-	"regexp"
 	"strconv"
 	"strings"
 
 	"google.golang.org/api/docs/v1"
-)
-
-var (
-	// Optional directive to specify the language of the code.
-	// If not set, #lang=go is assumed by default.
-	configLangRegex = regexp.MustCompile("^#lang=([\\w_]+)$")
 )
 
 // ConfigSegment represents a header/footer, which
@@ -108,15 +101,18 @@ func (c *CodeInstance) checkForConfig(s, segmentID string, par *docs.ParagraphEl
 		return
 	}
 
-	// check for shortcuts (must be bolded)
-	if c.Shortcuts == nil && strings.EqualFold(s, style.ShortcutsDirective) {
-		c.Shortcuts = &par.TextRun.TextStyle.Bold
-		return
+	// check for shortcuts
+	if c.Shortcuts == nil {
+		if res := style.ShortcutsRegex.FindStringSubmatch(s); len(res) == 2 {
+			enabled := res[1] == "enabled"
+			c.Shortcuts = &enabled
+			return
+		}
 	}
 
 	// check for language
 	if c.Lang == nil {
-		if res := configLangRegex.FindStringSubmatch(s); len(res) == 2 {
+		if res := style.LangRegex.FindStringSubmatch(s); len(res) == 2 {
 			if l, ok := style.GetLanguage(res[1]); ok {
 				c.Lang = l
 			} else {

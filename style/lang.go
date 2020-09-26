@@ -1,6 +1,7 @@
 package style
 
 import (
+	"regexp"
 	"strings"
 )
 
@@ -13,6 +14,11 @@ type Language struct {
 }
 
 var (
+	// LangRegex is the regex for the optional directive
+	// to specify the language of the code.
+	// If not set, #lang=go is assumed by default.
+	LangRegex = regexp.MustCompile("^#lang=([\\w_]+)$")
+
 	goLang = &Language{
 		Name:      "Go",
 		Format:    FormatGo,
