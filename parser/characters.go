@@ -96,24 +96,21 @@ func (c *CodeInstance) MapToUTF16() {
 func (c *CodeInstance) Replace(s *style.Shortcut) (reqs []*docs.Request) {
 	for {
 		if res := s.Regex.FindStringSubmatchIndex(c.Code); res != nil {
-			// update utf8 -> utf16 mapping
-			c.MapToUTF16()
-			utf8Start, utf8End := res[0], res[1]
-			utf16DeleteSize := GetUtf16StringSize(c.Code[utf8Start:utf8End])
-			utf16StartOffset := c.toUTF16[utf8Start]
+			utf8DelStart, utf8DelEnd := res[0], res[1]
+			utf16DelStart, utf16DelEnd := getUTF16SubstrIndices(c.Code[utf8DelStart:utf8DelEnd], c.Code, *c.StartIndex)
 
 			// delete target and insert replacement string
-			utf16Range := request.GetRange(utf16StartOffset, utf16StartOffset+utf16DeleteSize, "")
-			reqs = append(reqs, request.Delete(utf16Range))
-			reqs = append(reqs, request.Insert(s.Replace, utf16StartOffset))
+			utf16DelRange := request.GetRange(utf16DelStart, utf16DelEnd, "")
+			reqs = append(reqs, request.Delete(utf16DelRange))
+			reqs = append(reqs, request.Insert(s.Replace, utf16DelStart))
 
 			// update end index for utf16 difference
-			utf16InsertSize := GetUtf16StringSize(s.Replace)
-			newEndIndex := *c.EndIndex + utf16InsertSize - utf16DeleteSize
+			utf16InsSize := GetUtf16StringSize(s.Replace)
+			newEndIndex := *c.EndIndex + utf16InsSize - (utf16DelEnd - utf16DelStart)
 			c.EndIndex = &newEndIndex
 
 			// replace c.Code
-			c.Code = c.Code[:utf8Start] + s.Replace + c.Code[utf8End:]
+			c.Code = c.Code[:utf8DelStart] + s.Replace + c.Code[utf8DelEnd:]
 			continue
 		}
 		return
